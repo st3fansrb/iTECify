@@ -41,18 +41,20 @@ function executeCode(language, code) {
       `${runner.cmd} "${filepath}"`,
       { timeout: TIMEOUT_MS },
       (error, stdout, stderr) => {
-        // 3. Delete temp file
-        try { fs.unlinkSync(filepath); } catch (_) {}
+        try {
+          if (error && error.killed) {
+            return resolve({ stdout, stderr, error: `Execution timed out (>${TIMEOUT_MS / 1000}s)` });
+          }
 
-        if (error && error.killed) {
-          return resolve({ stdout, stderr, error: `Execution timed out (>${TIMEOUT_MS / 1000}s)` });
+          resolve({
+            stdout: stdout || '',
+            stderr: stderr || '',
+            error:  error ? error.message : null,
+          });
+        } finally {
+          // 3. Delete temp file — guaranteed, even if an exception occurs above
+          try { fs.unlinkSync(filepath); } catch (_) {}
         }
-
-        resolve({
-          stdout: stdout || '',
-          stderr: stderr || '',
-          error:  error ? error.message : null,
-        });
       }
     );
 
