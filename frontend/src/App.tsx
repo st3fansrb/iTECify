@@ -1,8 +1,12 @@
-import { useState } from 'react'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { useState, useEffect, useRef } from 'react'
 import Sidebar from './components/Sidebar'
 import CodeEditor from './components/CodeEditor'
 import TerminalOutput from './components/TerminalOutput'
-import { useAuth } from './hooks/useAuth'
+import HomePage from './pages/HomePage'
+import LoginPage from './pages/LoginPage'
+import KonamiExplosion from './components/KonamiExplosion'
+import { useKonamiCode } from './hooks/useKonamiCode'
 
 const INITIAL_FILES = [
   { name: 'main.py', language: 'python' },
@@ -43,125 +47,23 @@ const ORBS = (
   </>
 )
 
-// ─── Login / Signup screen ───────────────────────────────────────────────────
-
-function AuthScreen() {
-  const { signIn, signUp } = useAuth()
-  const [mode, setMode] = useState<'login' | 'signup'>('login')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [info, setInfo] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
-
-  const inputStyle: React.CSSProperties = {
-    width: '100%', padding: '10px 14px',
-    background: 'rgba(255,255,255,0.06)',
-    border: '1px solid rgba(236,72,153,0.3)',
-    borderRadius: '8px', color: 'white',
-    fontSize: '14px', outline: 'none',
-    boxSizing: 'border-box',
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError(null)
-    setInfo(null)
-    setLoading(true)
-    try {
-      if (mode === 'login') {
-        await signIn(email, password)
-      } else {
-        await signUp(email, password)
-        setInfo('Cont creat! Verifică emailul pentru confirmare.')
-      }
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Eroare necunoscută')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return (
-    <div style={BG_STYLE}>
-      {ORBS}
-      <div style={{
-        position: 'relative', zIndex: 1,
-        margin: 'auto',
-        background: 'rgba(15,12,41,0.75)',
-        backdropFilter: 'blur(24px)',
-        border: '1px solid rgba(236,72,153,0.25)',
-        borderRadius: '16px',
-        padding: '40px 36px',
-        width: '360px',
-        display: 'flex', flexDirection: 'column', gap: '20px',
-      }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: '22px', fontWeight: 700, color: '#f9a8d4' }}>
-            iTECify
-          </h1>
-          <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'rgba(255,255,255,0.45)' }}>
-            {mode === 'login' ? 'Autentifică-te pentru a continua' : 'Creează un cont nou'}
-          </p>
-        </div>
-
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            required
-            style={inputStyle}
-          />
-          <input
-            type="password"
-            placeholder="Parolă"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            required
-            style={inputStyle}
-          />
-
-          {error && (
-            <p style={{ margin: 0, fontSize: '12px', color: '#f87171' }}>{error}</p>
-          )}
-          {info && (
-            <p style={{ margin: 0, fontSize: '12px', color: '#86efac' }}>{info}</p>
-          )}
-
-          <button type="submit" disabled={loading} style={{
-            padding: '10px', borderRadius: '8px', border: 'none',
-            background: loading ? 'rgba(236,72,153,0.4)' : 'rgba(236,72,153,0.8)',
-            color: 'white', fontWeight: 600, fontSize: '14px',
-            cursor: loading ? 'not-allowed' : 'pointer', transition: 'background 0.2s',
-          }}>
-            {loading ? 'Se procesează...' : mode === 'login' ? 'Intră' : 'Creează cont'}
-          </button>
-        </form>
-
-        <p style={{ margin: 0, fontSize: '12px', color: 'rgba(255,255,255,0.4)', textAlign: 'center' }}>
-          {mode === 'login' ? 'Nu ai cont? ' : 'Ai deja cont? '}
-          <span
-            onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError(null); setInfo(null) }}
-            style={{ color: '#f9a8d4', cursor: 'pointer', textDecoration: 'underline' }}
-          >
-            {mode === 'login' ? 'Înregistrează-te' : 'Autentifică-te'}
-          </span>
-        </p>
-      </div>
-    </div>
-  )
-}
-
-// ─── Main editor ─────────────────────────────────────────────────────────────
-
-function Editor() {
-  const { session, user, signOut } = useAuth()
+function EditorPage() {
   const [activeFile, setActiveFile] = useState('main.py')
   const [codes, setCodes] = useState(INITIAL_CODE)
   const [output, setOutput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [toast, setToast] = useState(false)
+  const toastShownRef = useRef(false)
+
+  useEffect(() => {
+    if (toastShownRef.current) return
+    const found = Object.values(codes).some(c => c.includes('itecify'))
+    if (found) {
+      toastShownRef.current = true
+      setToast(true)
+      setTimeout(() => setToast(false), 4000)
+    }
+  }, [codes])
 
   const activeLanguage = INITIAL_FILES.find(f => f.name === activeFile)?.language ?? 'plaintext'
 
@@ -175,10 +77,7 @@ function Editor() {
     try {
       const res = await fetch('http://localhost:3001/api/execute', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session!.access_token}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ language: activeLanguage, code: codes[activeFile] }),
       })
       const data = await res.json()
@@ -198,7 +97,6 @@ function Editor() {
     <div style={BG_STYLE}>
       {ORBS}
 
-      {/* Sidebar */}
       <div style={{
         position: 'relative', zIndex: 1,
         background: 'rgba(15,12,41,0.6)',
@@ -208,52 +106,32 @@ function Editor() {
         <Sidebar files={INITIAL_FILES} activeFile={activeFile} onSelectFile={setActiveFile} />
       </div>
 
-      {/* Main area */}
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', position: 'relative', zIndex: 1 }}>
-        {/* Tab bar + user info */}
         <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          display: 'flex', alignItems: 'center',
           background: 'rgba(0,0,0,0.25)',
           backdropFilter: 'blur(10px)',
           borderBottom: '1px solid rgba(255,255,255,0.08)',
           padding: '0 8px',
         }}>
-          <div style={{ display: 'flex', gap: '4px' }}>
-            {INITIAL_FILES.map((file) => (
-              <button key={file.name} onClick={() => setActiveFile(file.name)} style={{
-                padding: '8px 16px', fontSize: '12px',
-                background: activeFile === file.name ? 'rgba(236,72,153,0.1)' : 'transparent',
-                color: activeFile === file.name ? '#f9a8d4' : 'rgba(255,255,255,0.35)',
-                border: 'none',
-                borderTop: activeFile === file.name ? '2px solid #f472b6' : '2px solid transparent',
-                cursor: 'pointer', transition: 'all 0.2s', fontFamily: 'monospace',
-              }}>
-                {file.name}
-              </button>
-            ))}
-          </div>
-
-          {/* User info + sign out */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', paddingRight: '8px' }}>
-            <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>{user?.email}</span>
-            <button onClick={signOut} style={{
-              fontSize: '11px', padding: '4px 10px',
-              background: 'rgba(236,72,153,0.15)',
-              border: '1px solid rgba(236,72,153,0.3)',
-              borderRadius: '6px', color: '#f9a8d4',
-              cursor: 'pointer',
+          {INITIAL_FILES.map((file) => (
+            <button key={file.name} onClick={() => setActiveFile(file.name)} style={{
+              padding: '8px 16px', fontSize: '12px',
+              background: activeFile === file.name ? 'rgba(236,72,153,0.1)' : 'transparent',
+              color: activeFile === file.name ? '#f9a8d4' : 'rgba(255,255,255,0.35)',
+              border: 'none',
+              borderTop: activeFile === file.name ? '2px solid #f472b6' : '2px solid transparent',
+              cursor: 'pointer', transition: 'all 0.2s', fontFamily: 'monospace',
             }}>
-              Ieși
+              {file.name}
             </button>
-          </div>
+          ))}
         </div>
 
-        {/* Editor */}
         <div style={{ flex: 1, overflow: 'hidden' }}>
           <CodeEditor language={activeLanguage} value={codes[activeFile]} onChange={handleCodeChange} />
         </div>
 
-        {/* Terminal */}
         <div style={{
           background: 'rgba(0,0,0,0.45)',
           backdropFilter: 'blur(20px)',
@@ -262,25 +140,46 @@ function Editor() {
           <TerminalOutput output={output} isLoading={isLoading} onRun={handleRun} onClear={() => setOutput('')} />
         </div>
       </div>
+
+      {toast && (
+        <div style={{
+          position: 'fixed', bottom: '24px', right: '24px', zIndex: 1000,
+          background: 'rgba(15,12,41,0.95)',
+          border: '1px solid rgba(236,72,153,0.4)',
+          borderRadius: '12px',
+          padding: '14px 20px',
+          color: 'white', fontSize: '14px', fontWeight: 600,
+          boxShadow: '0 8px 32px rgba(0,0,0,0.5), 0 0 20px rgba(236,72,153,0.2)',
+          backdropFilter: 'blur(16px)',
+          display: 'flex', alignItems: 'center', gap: '10px',
+          animation: 'toast-in 0.4s cubic-bezier(0.34,1.56,0.64,1) both',
+        }}>
+          <span style={{ fontSize: '20px' }}>👾</span>
+          <span>Hello, fellow coder!</span>
+        </div>
+      )}
+      <style>{`
+        @keyframes toast-in {
+          from { opacity: 0; transform: translateX(40px); }
+          to   { opacity: 1; transform: translateX(0); }
+        }
+      `}</style>
     </div>
   )
 }
 
-// ─── Root ─────────────────────────────────────────────────────────────────────
-
 export default function App() {
-  const { session, loading } = useAuth()
+  const { activated, reset } = useKonamiCode()
 
-  if (loading) {
-    return (
-      <div style={{ ...BG_STYLE, alignItems: 'center', justifyContent: 'center' }}>
-        {ORBS}
-        <p style={{ position: 'relative', zIndex: 1, color: 'rgba(255,255,255,0.4)', fontSize: '14px' }}>
-          Se încarcă...
-        </p>
-      </div>
-    )
-  }
-
-  return session ? <Editor /> : <AuthScreen />
+  return (
+    <BrowserRouter>
+      {activated && <KonamiExplosion onClose={reset} />}
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/editor" element={<EditorPage />} />
+        <Route path="*" element={<Navigate to="/" />} />
+      </Routes>
+    </BrowserRouter>
+  )
 }

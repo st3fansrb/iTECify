@@ -1,9 +1,20 @@
 import { useNavigate } from 'react-router-dom'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 export default function HomePage() {
   const navigate = useNavigate()
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const clickCountRef = useRef(0)
+  const [hackerMode, setHackerMode] = useState(false)
+
+  const handleLogoClick = () => {
+    clickCountRef.current += 1
+    if (clickCountRef.current >= 5) {
+      clickCountRef.current = 0
+      setHackerMode(true)
+      setTimeout(() => setHackerMode(false), 10000)
+    }
+  }
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -69,7 +80,22 @@ export default function HomePage() {
       background: 'linear-gradient(135deg, #1a0533 0%, #2d1b4e 30%, #1a1a2e 60%, #0f0c29 100%)',
       display: 'flex',
       flexDirection: 'column',
+      filter: hackerMode ? 'hue-rotate(90deg) saturate(4) brightness(0.75)' : undefined,
+      transition: 'filter 0.5s ease',
     }}>
+      {hackerMode && (
+        <div style={{
+          position: 'fixed', top: '16px', left: '50%', transform: 'translateX(-50%)',
+          zIndex: 100, background: 'rgba(0,255,70,0.15)', border: '1px solid rgba(0,255,70,0.4)',
+          borderRadius: '8px', padding: '8px 20px', color: '#00ff46',
+          fontFamily: 'monospace', fontSize: '13px', fontWeight: 700,
+          letterSpacing: '0.1em', backdropFilter: 'blur(10px)',
+          animation: 'hacker-pulse 1s ease-in-out infinite',
+          pointerEvents: 'none',
+        }}>
+          ▓ HACKER MODE ACTIVATED ▓
+        </div>
+      )}
       {/* Particle canvas */}
       <canvas ref={canvasRef} style={{ position: 'absolute', inset: 0, zIndex: 0 }} />
 
@@ -111,27 +137,9 @@ export default function HomePage() {
         backdropFilter: 'blur(10px)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <img src="/src/assets/logo.png" alt="iTECify logo" style={{ width: '32px', height: '32px', filter: 'invert(1) sepia(1) saturate(2) hue-rotate(280deg)' }} />
+          <img src="/src/assets/logo.png" alt="iTECify logo" onClick={handleLogoClick} style={{ width: '32px', height: '32px', filter: 'invert(1) sepia(1) saturate(2) hue-rotate(280deg)', cursor: 'pointer' }} />
           <span style={{ fontWeight: 700, fontSize: '18px', color: 'white', letterSpacing: '0.05em' }}>iTECify</span>
         </div>
-        <button
-          onClick={() => navigate('/login')}
-          style={{
-            padding: '8px 20px',
-            background: 'rgba(249,168,212,0.1)',
-            border: '1px solid rgba(249,168,212,0.3)',
-            borderRadius: '8px',
-            color: '#f9a8d4',
-            fontSize: '14px',
-            cursor: 'pointer',
-            transition: 'all 0.2s',
-            fontFamily: 'monospace',
-          }}
-          onMouseEnter={e => (e.currentTarget.style.background = 'rgba(249,168,212,0.2)')}
-          onMouseLeave={e => (e.currentTarget.style.background = 'rgba(249,168,212,0.1)')}
-        >
-          Sign In
-        </button>
       </nav>
 
       {/* Hero */}
@@ -151,11 +159,13 @@ export default function HomePage() {
           <img
             src="/src/assets/logo.png"
             alt="iTECify"
+            onClick={handleLogoClick}
             style={{
               width: '120px', height: '120px',
               filter: 'invert(1) sepia(1) saturate(2) hue-rotate(280deg) brightness(1.2)',
               position: 'relative',
               animation: 'float 4s ease-in-out infinite',
+              cursor: 'pointer',
             }}
           />
         </div>
@@ -212,6 +222,10 @@ export default function HomePage() {
         @keyframes float {
           0%, 100% { transform: translateY(0px); }
           50% { transform: translateY(-12px); }
+        }
+        @keyframes hacker-pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
         }
       `}</style>
     </div>
