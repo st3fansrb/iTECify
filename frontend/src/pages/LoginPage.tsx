@@ -1,14 +1,31 @@
 import { useNavigate } from 'react-router-dom'
 import { useState } from 'react'
+import { useAuth } from '../hooks/useAuth'
 
 export default function LoginPage() {
   const navigate = useNavigate()
+  const { signIn, signUp } = useAuth()
   const [isLogin, setIsLogin] = useState(true)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
 
-  const handleSubmit = () => {
-    navigate('/editor')
+  const handleSubmit = async () => {
+    setError(null)
+    setLoading(true)
+    try {
+      if (isLogin) {
+        await signIn(email, password)
+      } else {
+        await signUp(email, password)
+      }
+      navigate('/editor')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Eroare necunoscută')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -76,8 +93,13 @@ export default function LoginPage() {
           />
         </div>
 
+        {/* Error */}
+        {error && (
+          <p style={{ margin: '0 0 12px', fontSize: '13px', color: '#f87171', textAlign: 'center' }}>{error}</p>
+        )}
+
         {/* Submit */}
-        <button onClick={handleSubmit} style={{
+        <button onClick={handleSubmit} disabled={loading} style={{
           width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid rgba(249,168,212,0.3)',
           background: 'linear-gradient(135deg, rgba(249,168,212,0.2), rgba(216,180,254,0.2))',
           color: 'white', fontSize: '15px', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s',
@@ -86,7 +108,7 @@ export default function LoginPage() {
           onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
           onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
         >
-          {isLogin ? '✦ Sign In' : '✦ Create Account'}
+          {loading ? 'Se procesează...' : isLogin ? '✦ Sign In' : '✦ Create Account'}
         </button>
 
         {/* Back */}

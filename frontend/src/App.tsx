@@ -7,6 +7,7 @@ import HomePage from './pages/HomePage'
 import LoginPage from './pages/LoginPage'
 import KonamiExplosion from './components/KonamiExplosion'
 import { useKonamiCode } from './hooks/useKonamiCode'
+import { useAuth } from './hooks/useAuth'
 
 const INITIAL_FILES = [
   { name: 'main.py', language: 'python' },
@@ -48,6 +49,7 @@ const ORBS = (
 )
 
 function EditorPage() {
+  const { session } = useAuth()
   const [activeFile, setActiveFile] = useState('main.py')
   const [codes, setCodes] = useState(INITIAL_CODE)
   const [output, setOutput] = useState('')
@@ -77,7 +79,10 @@ function EditorPage() {
     try {
       const res = await fetch('http://localhost:3001/api/execute', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`,
+        },
         body: JSON.stringify({ language: activeLanguage, code: codes[activeFile] }),
       })
       const data = await res.json()
@@ -168,6 +173,13 @@ function EditorPage() {
   )
 }
 
+function RequireAuth({ children }: { children: React.ReactNode }) {
+  const { session, loading } = useAuth()
+  if (loading) return null
+  if (!session) return <Navigate to="/login" replace />
+  return <>{children}</>
+}
+
 export default function App() {
   const { activated, reset } = useKonamiCode()
 
@@ -177,7 +189,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/editor" element={<EditorPage />} />
+        <Route path="/editor" element={<RequireAuth><EditorPage /></RequireAuth>} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </BrowserRouter>
