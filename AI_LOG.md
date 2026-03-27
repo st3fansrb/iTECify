@@ -27,6 +27,7 @@
 * [x] Setup backend: Express 5 + CORS + dotenv + nodemon.
 * [x] **Membru 2 — Supabase layer v1**: `database.types.ts`, `supabaseClient.ts`, `sessionApi.ts`, `useAuth.ts`, `useRealtimeCode.ts`.
 * [x] **Membru 2 — Supabase layer v2**: `lib/supabase.ts` (schema projects+files, default export), `hooks/useAuth.ts` (+ session, signIn/signUp), `hooks/useRealtimeEditor.ts` (postgres_changes + presence). `tsc --noEmit` → 0 erori.
+* [x] **[2026-03-27] Verificare completă**: `tsc` OK, `dockerode` instalat în backend (`npm install`), toate fișierele verificate și corecte.
 * [x] **Plan B Execution Engine:** `POST /api/execute` funcțional via `child_process` (suportă JavaScript și Python). Fișiere: `src/services/executionService.js`, `src/index.js`, `backend/temp/`.
 * [x] **[2026-03-27] Membru 3:** Execuția codului prin `child_process` finalizată și verificată (Plan B).
 * [x] **[2026-03-27] Membru 3:** Upgrade la Docker real — `dockerode` instalat, `executionService.js` rescris. Containere izolate: fără rețea, 50MB RAM, read-only mount. Testat: Python OK, JavaScript OK, timeout (buclă infinită) OK.
