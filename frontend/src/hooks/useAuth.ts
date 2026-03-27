@@ -1,48 +1,46 @@
 import { useState, useEffect } from 'react'
-import type { User } from '@supabase/supabase-js'
-import { supabase } from '../lib/supabaseClient'
+import type { User, Session } from '@supabase/supabase-js'
+import supabase from '../lib/supabase'
 
-export interface AuthState {
+export interface UseAuthReturn {
   user: User | null
-  /** True while the initial session check is in flight — gate your UI on this. */
+  session: Session | null
   loading: boolean
-}
-
-export interface AuthActions {
-  signInWithEmail: (email: string, password: string) => Promise<void>
-  signUpWithEmail: (email: string, password: string) => Promise<void>
+  signIn: (email: string, password: string) => Promise<void>
+  signUp: (email: string, password: string) => Promise<void>
   signOut: () => Promise<void>
 }
 
-export type UseAuthReturn = AuthState & AuthActions
-
 export function useAuth(): UseAuthReturn {
   const [user, setUser] = useState<User | null>(null)
+  const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Resolve the existing session immediately (avoids flash of logged-out state).
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null)
+    // Resolve existing session on mount (prevents flash of logged-out state).
+    supabase.auth.getSession().then(({ data: { session: s } }) => {
+      setSession(s)
+      setUser(s?.user ?? null)
       setLoading(false)
     })
 
-    // Keep state in sync for tab-switches, token refreshes, sign-outs in other tabs, etc.
+    // Stay in sync across tab-switches, token refreshes, sign-outs in other tabs.
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
+    } = supabase.auth.onAuthStateChange((_event, s) => {
+      setSession(s)
+      setUser(s?.user ?? null)
     })
 
     return () => subscription.unsubscribe()
   }, [])
 
-  async function signInWithEmail(email: string, password: string): Promise<void> {
+  async function signIn(email: string, password: string): Promise<void> {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) throw error
   }
 
-  async function signUpWithEmail(email: string, password: string): Promise<void> {
+  async function signUp(email: string, password: string): Promise<void> {
     const { error } = await supabase.auth.signUp({ email, password })
     if (error) throw error
   }
@@ -52,5 +50,5 @@ export function useAuth(): UseAuthReturn {
     if (error) throw error
   }
 
-  return { user, loading, signInWithEmail, signUpWithEmail, signOut }
+  return { user, session, loading, signIn, signUp, signOut }
 }
