@@ -1,68 +1,91 @@
-const { exec } = require('child_process');
+const Docker = require('dockerode');
 const fs = require('fs');
 const path = require('path');
 const { randomUUID } = require('crypto');
+const { PassThrough } = require('stream');
 
+const docker = new Docker();
 const TEMP_DIR = path.join(__dirname, '../../temp');
 const TIMEOUT_MS = 10000; // 10s hard kill
 
-// Maps language -> { ext, cmd }
+// Maps language -> { Docker image, filename, command }
 const RUNNERS = {
-  javascript: { ext: 'js',  cmd: 'node' },
-  python:     { ext: 'py',  cmd: 'python' },
+  javascript: { image: 'node:18-alpine',  file: 'code.js', cmd: ['node',   '/sandbox/code.js'] },
+  python:     { image: 'python:3.9-slim', file: 'code.py', cmd: ['python', '/sandbox/code.py'] },
 };
 
 /**
- * Executes user-submitted code using child_process (Plan B — no Docker).
+ * Executes user-submitted code inside an isolated Docker container.
  * @param {string} language  - 'javascript' | 'python'
  * @param {string} code      - source code string
  * @returns {Promise<{ stdout: string, stderr: string, error: string|null }>}
  */
-function executeCode(language, code) {
-  return new Promise((resolve) => {
-    const runner = RUNNERS[language];
+async function executeCode(language, code) {
+  const runner = RUNNERS[language];
+  if (!runner) {
+    return { stdout: '', stderr: '', error: `Unsupported language: ${language}` };
+  }
 
-    if (!runner) {
-      return resolve({ stdout: '', stderr: '', error: `Unsupported language: ${language}` });
+  // Unique directory per execution so parallel runs don't collide
+  const execDir = path.join(TEMP_DIR, randomUUID());
+  let container = null;
+  let timedOut = false;
+
+  try {
+    // 1. Write code to isolated temp directory
+    fs.mkdirSync(execDir, { recursive: true });
+    fs.writeFileSync(path.join(execDir, runner.file), code, 'utf8');
+
+    // 2. Create container — no network, 50 MB RAM cap, read-only mount
+    container = await docker.createContainer({
+      Image: runner.image,
+      Cmd: runner.cmd,
+      HostConfig: {
+        Binds: [`${execDir}:/sandbox:ro`],
+        NetworkMode: 'none',
+        Memory: 50 * 1024 * 1024,
+        AutoRemove: false,
+      },
+    });
+
+    // 3. Attach BEFORE start to capture all stdout/stderr from the first byte
+    const logStream = await container.attach({ stream: true, stdout: true, stderr: true });
+    const stdoutPass = new PassThrough();
+    const stderrPass = new PassThrough();
+    docker.modem.demuxStream(logStream, stdoutPass, stderrPass);
+
+    let stdoutData = '', stderrData = '';
+    stdoutPass.on('data', chunk => { stdoutData += chunk.toString('utf8'); });
+    stderrPass.on('data', chunk => { stderrData += chunk.toString('utf8'); });
+
+    // 4. Start
+    await container.start();
+
+    // 5. Wait for exit with timeout
+    await Promise.race([
+      container.wait(),
+      new Promise(resolve => setTimeout(() => { timedOut = true; resolve(); }, TIMEOUT_MS)),
+    ]);
+
+    if (timedOut) {
+      await container.stop({ t: 0 }).catch(() => {});
+      return { stdout: '', stderr: '', error: `Execution timed out (>${TIMEOUT_MS / 1000}s)` };
     }
 
-    const filename = `exec_${randomUUID()}.${runner.ext}`;
-    const filepath = path.join(TEMP_DIR, filename);
+    // Allow stream to flush remaining buffered data
+    await new Promise(r => setTimeout(r, 100));
 
-    // 1. Write code to temp file
-    try {
-      fs.writeFileSync(filepath, code, 'utf8');
-    } catch (err) {
-      return resolve({ stdout: '', stderr: '', error: `Failed to write temp file: ${err.message}` });
+    return { stdout: stdoutData, stderr: stderrData, error: null };
+
+  } catch (err) {
+    return { stdout: '', stderr: '', error: err.message };
+  } finally {
+    // 6. Cleanup — always, regardless of success/timeout/error
+    if (container) {
+      await container.remove({ force: true }).catch(() => {});
     }
-
-    // 2. Run the file
-    const child = exec(
-      `${runner.cmd} "${filepath}"`,
-      { timeout: TIMEOUT_MS },
-      (error, stdout, stderr) => {
-        try {
-          if (error && error.killed) {
-            return resolve({ stdout, stderr, error: `Execution timed out (>${TIMEOUT_MS / 1000}s)` });
-          }
-
-          resolve({
-            stdout: stdout || '',
-            stderr: stderr || '',
-            error:  error ? error.message : null,
-          });
-        } finally {
-          // 3. Delete temp file — guaranteed, even if an exception occurs above
-          try { fs.unlinkSync(filepath); } catch (_) {}
-        }
-      }
-    );
-
-    // Safety: kill if still alive after timeout
-    setTimeout(() => {
-      try { child.kill(); } catch (_) {}
-    }, TIMEOUT_MS + 500);
-  });
+    fs.rmSync(execDir, { recursive: true, force: true });
+  }
 }
 
 module.exports = { executeCode };
