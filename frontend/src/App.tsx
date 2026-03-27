@@ -5,6 +5,7 @@ import CodeEditor from './components/CodeEditor'
 import TerminalOutput from './components/TerminalOutput'
 import HomePage from './pages/HomePage'
 import LoginPage from './pages/LoginPage'
+import SecretPage from './pages/SecretPage'
 import KonamiExplosion from './components/KonamiExplosion'
 import { useKonamiCode } from './hooks/useKonamiCode'
 import { useAuth } from './hooks/useAuth'
@@ -190,6 +191,7 @@ export default function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/editor" element={<RequireAuth><EditorPage /></RequireAuth>} />
+        <Route path="/secret" element={<SecretPage />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </BrowserRouter>

@@ -31,6 +31,13 @@
 * [x] **Plan B Execution Engine:** `POST /api/execute` funcțional via `child_process` (suportă JavaScript și Python). Fișiere: `src/services/executionService.js`, `src/index.js`, `backend/temp/`.
 * [x] **[2026-03-27] Membru 3:** Execuția codului prin `child_process` finalizată și verificată (Plan B).
 * [x] **[2026-03-27] Membru 3:** Upgrade la Docker real — `dockerode` instalat, `executionService.js` rescris. Containere izolate: fără rețea, 50MB RAM, read-only mount. Testat: Python OK, JavaScript OK, timeout (buclă infinită) OK.
+* [x] **[2026-03-28] Frontend — Asset updates (KonamiExplosion + SecretPage):**
+  - **KonamiExplosion**: înlocuit logo cu `cat-access.png` (200×200, border-radius 16px, glow roz/mov, animație float 3s). Animație `cat-float` adăugată în `<style>`.
+  - **SecretPage**: `terminal-bg.png` ca fundal full-cover + overlay `rgba(0,0,0,0.72)` pentru lizibilitate + vignette cu `box-shadow: inset`. `zIndex` panel ridicat la 10.
+* [x] **[2026-03-28] Frontend — Secret Terminal Page + Konami upgrade:**
+  - **SecretPage** (`/secret`): terminal glassmorphism full-screen cu typewriter effect (15ms/char), cursor roz pulsant, prompt `iTECify@secret:~$`, 8 comenzi implementate (help/whoami/hack nasa/sudo make coffee/vibe check/rizz/ls /universe/exit). `exit` redirect la `/` după typewriter finish. Fișier: `src/pages/SecretPage.tsx`.
+  - **KonamiExplosion upgrade**: înlocuit "🎉 You found the secret!" cu glitch CSS "ACCESS GRANTED" (pseudo-elements via `<style>` + `data-text`) + buton pulsating "Enter the void >" cu `useNavigate('/secret')`. Particule nu mai auto-închid overlay-ul.
+  - Rută `/secret` adăugată în `App.tsx`.
 * [x] **[2026-03-28] Frontend — Easter Eggs (3x):**
   - **Konami Code** (↑↑↓↓←→←→BA): hook `useKonamiCode.ts` + component `KonamiExplosion.tsx` — overlay full-screen cu 280 particule roz/mov pe canvas + animație logo + mesaj "🎉 You found the secret!". Activ pe toate paginile via `App.tsx`.
   - **Hacker Mode** (5 click-uri pe logo din HomePage): filtru CSS `hue-rotate(90deg) saturate(4)` aplicat pe tot ecranul timp de 10 secunde + banner "HACKER MODE ACTIVATED" cu animație pulse. Implementat în `HomePage.tsx` cu `useRef` pentru counter și `useState` pentru activare.
