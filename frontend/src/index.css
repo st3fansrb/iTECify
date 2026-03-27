@@ -9,4 +9,39 @@
 html, body, #root {
   height: 100%;
   width: 100%;
+  overflow: hidden;
+}
+
+@keyframes meshMove {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes pulse-orb {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.1); }
+}
+
+.animated-bg {
+  background: linear-gradient(125deg, #0f0c29, #302b63, #1a0533, #24243e, #0f0c29);
+  background-size: 400% 400%;
+  animation: meshMove 15s ease infinite;
+}
+
+.orb-pink {
+  animation: pulse-orb 6s ease-in-out infinite;
+}
+
+.orb-purple {
+  animation: pulse-orb 8s ease-in-out infinite reverse;
+}
+
+@keyframes fadeInTab {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.tab-animate {
+  animation: fadeInTab 0.2s ease;
 }
