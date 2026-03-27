@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import catSrc from '../assets/cat-access.png'
+import catSrc from '../assets/logo.png'
 
 interface Particle {
   x: number; y: number
