@@ -28,6 +28,8 @@ export interface UseRealtimeEditorReturn {
   code: string
   updateCode: (newContent: string) => void
   loading: boolean
+  /** True în intervalul de 500ms debounce + cât durează write-ul în DB. */
+  isSaving: boolean
   /** Supabase user IDs of everyone currently viewing this file. */
   connectedUsers: string[]
 }
@@ -40,6 +42,7 @@ export function useRealtimeEditor({
 }: UseRealtimeEditorOptions): UseRealtimeEditorReturn {
   const [code, setCode] = useState(initialContent)
   const [loading, setLoading] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
   const [connectedUsers, setConnectedUsers] = useState<string[]>([])
 
   const currentUserIdRef = useRef<string | null>(null)
@@ -121,6 +124,7 @@ export function useRealtimeEditor({
     (newContent: string) => {
       setCode(newContent)
 
+      setIsSaving(true)
       if (debounceTimer.current) clearTimeout(debounceTimer.current)
       debounceTimer.current = setTimeout(() => {
         void supabase
@@ -132,6 +136,7 @@ export function useRealtimeEditor({
           })
           .eq('id', fileId)
           .then(({ error }) => {
+            setIsSaving(false)
             if (error) console.error('[useRealtimeEditor] DB update failed:', error)
           })
       }, DEBOUNCE_MS)
@@ -139,5 +144,5 @@ export function useRealtimeEditor({
     [fileId]
   )
 
-  return { code, updateCode, loading, connectedUsers }
+  return { code, updateCode, loading, isSaving, connectedUsers }
 }
