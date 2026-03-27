@@ -21,6 +21,8 @@ export default function App() {
   const [output, setOutput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
+  const activeLanguage = INITIAL_FILES.find(f => f.name === activeFile)?.language ?? 'plaintext'
+
   const handleCodeChange = (value: string) => {
     setCodes((prev) => ({ ...prev, [activeFile]: value }))
   }
@@ -28,13 +30,24 @@ export default function App() {
   const handleRun = async () => {
     setIsLoading(true)
     setOutput('Running...')
-    setTimeout(() => {
-      setOutput(`[iTECify] Execution engine not connected yet.\nFile: ${activeFile}`)
+    try {
+      const res = await fetch('http://localhost:3001/api/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ language: activeLanguage, code: codes[activeFile] }),
+      })
+      const data = await res.json()
+      if (data.error) {
+        setOutput(`ERROR: ${data.error}`)
+      } else {
+        setOutput([data.stdout, data.stderr].filter(Boolean).join('\n') || '(no output)')
+      }
+    } catch {
+      setOutput('ERROR: Could not reach backend (http://localhost:3001)')
+    } finally {
       setIsLoading(false)
-    }, 1000)
+    }
   }
-
-  const activeLanguage = INITIAL_FILES.find(f => f.name === activeFile)?.language ?? 'plaintext'
 
   return (
     <div style={{
