@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { useState, useEffect, useRef } from 'react'
 import Sidebar from './components/Sidebar'
 import CodeEditor from './components/CodeEditor'
@@ -9,6 +9,8 @@ import SecretPage from './pages/SecretPage'
 import KonamiExplosion from './components/KonamiExplosion'
 import { useKonamiCode } from './hooks/useKonamiCode'
 import { useAuth } from './hooks/useAuth'
+import { useRealtimeEditor } from './hooks/useRealtimeEditor'
+import supabase from './lib/supabase'
 
 const INITIAL_FILES = [
   { name: 'main.py', language: 'python' },
@@ -49,29 +51,114 @@ const ORBS = (
   </>
 )
 
-function EditorPage() {
-  const { session } = useAuth()
+// ── Room creation/joining ─────────────────────────────────────────────────────
+
+type FileMap = Record<string, { id: string; content: string }>
+
+async function createOrJoinRoom(roomId: string | null): Promise<{ roomId: string; fileMap: FileMap }> {
+  if (roomId) {
+    const { data: files } = await supabase
+      .from('files')
+      .select('id, name, content')
+      .eq('project_id', roomId)
+    if (files && files.length > 0) {
+      const fileMap: FileMap = {}
+      files.forEach(f => { fileMap[f.name] = { id: f.id, content: f.content ?? '' } })
+      return { roomId, fileMap }
+    }
+  }
+
+  // Create a new project
+  const { data: project, error: projError } = await supabase
+    .from('projects')
+    .insert({ name: 'iTECify Room' })
+    .select()
+    .single()
+  if (projError || !project) throw new Error('Could not create room')
+
+  // Create files for this project
+  const { data: createdFiles, error: filesError } = await supabase
+    .from('files')
+    .insert(INITIAL_FILES.map(f => ({
+      project_id: project.id,
+      name: f.name,
+      language: f.language,
+      content: INITIAL_CODE[f.name],
+    })))
+    .select('id, name, content')
+  if (filesError || !createdFiles) throw new Error('Could not create files')
+
+  const fileMap: FileMap = {}
+  createdFiles.forEach(f => { fileMap[f.name] = { id: f.id, content: f.content ?? '' } })
+  return { roomId: project.id, fileMap }
+}
+
+// ── Avatar indicator for connected users ─────────────────────────────────────
+
+function UserDot({ userId }: { userId: string }) {
+  const initials = userId.slice(0, 2).toUpperCase()
+  const hue = [...userId].reduce((acc, c) => acc + c.charCodeAt(0), 0) % 360
+  return (
+    <div title={userId} style={{
+      width: '26px', height: '26px', borderRadius: '50%',
+      background: `hsl(${hue}, 70%, 55%)`,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontSize: '10px', fontWeight: 700, color: 'white',
+      border: '2px solid rgba(255,255,255,0.15)',
+      flexShrink: 0,
+    }}>
+      {initials}
+    </div>
+  )
+}
+
+// ── Realtime editor wrapper ───────────────────────────────────────────────────
+
+function RealtimeEditorPage({
+  fileMap,
+  roomId,
+}: {
+  fileMap: FileMap
+  roomId: string
+}) {
+  const { session, user, signOut } = useAuth()
+  const navigate = useNavigate()
   const [activeFile, setActiveFile] = useState('main.py')
-  const [codes, setCodes] = useState(INITIAL_CODE)
+  const [localCodes, setLocalCodes] = useState<Record<string, string>>(
+    Object.fromEntries(Object.entries(fileMap).map(([name, f]) => [name, f.content]))
+  )
   const [output, setOutput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [copied, setCopied] = useState(false)
   const [toast, setToast] = useState(false)
   const toastShownRef = useRef(false)
 
+  const activeFileId = fileMap[activeFile]?.id ?? ''
+  const activeLanguage = INITIAL_FILES.find(f => f.name === activeFile)?.language ?? 'plaintext'
+
+  const { code, updateCode, connectedUsers } = useRealtimeEditor({
+    fileId: activeFileId,
+    initialContent: localCodes[activeFile] ?? '',
+  })
+
+  // Sync realtime code → local cache
+  useEffect(() => {
+    setLocalCodes(prev => ({ ...prev, [activeFile]: code }))
+  }, [code, activeFile])
+
+  // Easter egg toast
   useEffect(() => {
     if (toastShownRef.current) return
-    const found = Object.values(codes).some(c => c.includes('itecify'))
+    const found = Object.values(localCodes).some(c => c.toLowerCase().includes('itecify'))
     if (found) {
       toastShownRef.current = true
       setToast(true)
       setTimeout(() => setToast(false), 4000)
     }
-  }, [codes])
-
-  const activeLanguage = INITIAL_FILES.find(f => f.name === activeFile)?.language ?? 'plaintext'
+  }, [localCodes])
 
   const handleCodeChange = (value: string) => {
-    setCodes((prev) => ({ ...prev, [activeFile]: value }))
+    updateCode(value)
   }
 
   const handleRun = async () => {
@@ -84,7 +171,7 @@ function EditorPage() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session?.access_token}`,
         },
-        body: JSON.stringify({ language: activeLanguage, code: codes[activeFile] }),
+        body: JSON.stringify({ language: activeLanguage, code }),
       })
       const data = await res.json()
       if (data.error) {
@@ -99,10 +186,23 @@ function EditorPage() {
     }
   }
 
+  const handleShare = () => {
+    navigator.clipboard.writeText(window.location.href).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
+  const handleSignOut = async () => {
+    await signOut()
+    navigate('/')
+  }
+
   return (
     <div style={BG_STYLE}>
       {ORBS}
 
+      {/* Sidebar */}
       <div style={{
         position: 'relative', zIndex: 1,
         background: 'rgba(15,12,41,0.6)',
@@ -112,32 +212,85 @@ function EditorPage() {
         <Sidebar files={INITIAL_FILES} activeFile={activeFile} onSelectFile={setActiveFile} />
       </div>
 
+      {/* Main area */}
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', position: 'relative', zIndex: 1 }}>
+
+        {/* Top bar */}
         <div style={{
-          display: 'flex', alignItems: 'center',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           background: 'rgba(0,0,0,0.25)',
           backdropFilter: 'blur(10px)',
           borderBottom: '1px solid rgba(255,255,255,0.08)',
-          padding: '0 8px',
+          padding: '0 8px', gap: '8px', minHeight: '38px',
         }}>
-          {INITIAL_FILES.map((file) => (
-            <button key={file.name} onClick={() => setActiveFile(file.name)} style={{
-              padding: '8px 16px', fontSize: '12px',
-              background: activeFile === file.name ? 'rgba(236,72,153,0.1)' : 'transparent',
-              color: activeFile === file.name ? '#f9a8d4' : 'rgba(255,255,255,0.35)',
-              border: 'none',
-              borderTop: activeFile === file.name ? '2px solid #f472b6' : '2px solid transparent',
-              cursor: 'pointer', transition: 'all 0.2s', fontFamily: 'monospace',
+          {/* File tabs */}
+          <div style={{ display: 'flex' }}>
+            {INITIAL_FILES.map((file) => (
+              <button key={file.name} onClick={() => setActiveFile(file.name)} style={{
+                padding: '8px 16px', fontSize: '12px',
+                background: activeFile === file.name ? 'rgba(236,72,153,0.1)' : 'transparent',
+                color: activeFile === file.name ? '#f9a8d4' : 'rgba(255,255,255,0.35)',
+                border: 'none',
+                borderTop: activeFile === file.name ? '2px solid #f472b6' : '2px solid transparent',
+                cursor: 'pointer', transition: 'all 0.2s', fontFamily: 'monospace',
+              }}>
+                {file.name}
+              </button>
+            ))}
+          </div>
+
+          {/* Right side: connected users + share + user + sign out */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', paddingRight: '4px' }}>
+
+            {/* Connected users */}
+            {connectedUsers.length > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#4ade80' }} />
+                <div style={{ display: 'flex', gap: '3px' }}>
+                  {connectedUsers.slice(0, 5).map(uid => <UserDot key={uid} userId={uid} />)}
+                  {connectedUsers.length > 5 && (
+                    <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', alignSelf: 'center' }}>
+                      +{connectedUsers.length - 5}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Share button */}
+            <button onClick={handleShare} style={{
+              fontSize: '11px', padding: '4px 10px',
+              background: copied ? 'rgba(74,222,128,0.15)' : 'rgba(139,92,246,0.15)',
+              border: `1px solid ${copied ? 'rgba(74,222,128,0.4)' : 'rgba(139,92,246,0.3)'}`,
+              borderRadius: '6px',
+              color: copied ? '#4ade80' : '#c4b5fd',
+              cursor: 'pointer', transition: 'all 0.2s',
             }}>
-              {file.name}
+              {copied ? 'Copiat!' : 'Share'}
             </button>
-          ))}
+
+            {/* User email */}
+            <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)' }}>{user?.email}</span>
+
+            {/* Sign out */}
+            <button onClick={handleSignOut} style={{
+              fontSize: '11px', padding: '4px 10px',
+              background: 'rgba(236,72,153,0.1)',
+              border: '1px solid rgba(236,72,153,0.25)',
+              borderRadius: '6px', color: '#f9a8d4',
+              cursor: 'pointer',
+            }}>
+              Ieși
+            </button>
+          </div>
         </div>
 
+        {/* Editor */}
         <div style={{ flex: 1, overflow: 'hidden' }}>
-          <CodeEditor language={activeLanguage} value={codes[activeFile]} onChange={handleCodeChange} />
+          <CodeEditor language={activeLanguage} value={code} onChange={handleCodeChange} />
         </div>
 
+        {/* Terminal */}
         <div style={{
           background: 'rgba(0,0,0,0.45)',
           backdropFilter: 'blur(20px)',
@@ -147,13 +300,13 @@ function EditorPage() {
         </div>
       </div>
 
+      {/* Easter egg toast */}
       {toast && (
         <div style={{
           position: 'fixed', bottom: '24px', right: '24px', zIndex: 1000,
           background: 'rgba(15,12,41,0.95)',
           border: '1px solid rgba(236,72,153,0.4)',
-          borderRadius: '12px',
-          padding: '14px 20px',
+          borderRadius: '12px', padding: '14px 20px',
           color: 'white', fontSize: '14px', fontWeight: 600,
           boxShadow: '0 8px 32px rgba(0,0,0,0.5), 0 0 20px rgba(236,72,153,0.2)',
           backdropFilter: 'blur(16px)',
@@ -174,12 +327,60 @@ function EditorPage() {
   )
 }
 
+// ── EditorPage — handles room setup ──────────────────────────────────────────
+
+function EditorPage() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [fileMap, setFileMap] = useState<FileMap | null>(null)
+  const [roomId, setRoomId] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const existingRoom = searchParams.get('room')
+    createOrJoinRoom(existingRoom)
+      .then(({ roomId: rid, fileMap: fm }) => {
+        setRoomId(rid)
+        setFileMap(fm)
+        if (rid !== existingRoom) {
+          setSearchParams({ room: rid }, { replace: true })
+        }
+      })
+      .catch(() => setError('Nu s-a putut crea room-ul. Verifică conexiunea Supabase.'))
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (error) {
+    return (
+      <div style={{ ...BG_STYLE, alignItems: 'center', justifyContent: 'center' }}>
+        {ORBS}
+        <p style={{ position: 'relative', zIndex: 1, color: '#f87171', fontSize: '14px' }}>{error}</p>
+      </div>
+    )
+  }
+
+  if (!fileMap || !roomId) {
+    return (
+      <div style={{ ...BG_STYLE, alignItems: 'center', justifyContent: 'center' }}>
+        {ORBS}
+        <p style={{ position: 'relative', zIndex: 1, color: 'rgba(255,255,255,0.4)', fontSize: '14px' }}>
+          Se pregătește room-ul...
+        </p>
+      </div>
+    )
+  }
+
+  return <RealtimeEditorPage fileMap={fileMap} roomId={roomId} />
+}
+
+// ── Route guard ───────────────────────────────────────────────────────────────
+
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuth()
   if (loading) return null
   if (!session) return <Navigate to="/login" replace />
   return <>{children}</>
 }
+
+// ── Root ──────────────────────────────────────────────────────────────────────
 
 export default function App() {
   const { activated, reset } = useKonamiCode()
