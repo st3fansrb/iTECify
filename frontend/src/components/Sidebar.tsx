@@ -166,6 +166,13 @@ function SidebarStyles() {
         0%, 100% { border-left-width: 3px; opacity: 1; }
         50%       { border-left-width: 5px; opacity: 0.88; }
       }
+      @keyframes shimmer {
+        0%, 100% { color: #f472b6; text-shadow: 0 0 8px rgba(244,114,182,0.5); }
+        50%       { color: #d8b4fe; text-shadow: 0 0 14px rgba(216,180,254,0.7); }
+      }
+      .sidebar-shimmer {
+        animation: shimmer 2.4s ease-in-out infinite;
+      }
     `}</style>
   )
 }
@@ -207,7 +214,10 @@ export default function Sidebar({ files, activeFile, onSelectFile, loading, onCr
       {/* Logo / Title */}
       <div className="border-b border-slate-700">
         <div className="px-4 py-3">
-          <span style={{ fontSize: '16px', fontWeight: 800 }} className="text-white tracking-widest uppercase">iTECify</span>
+          <span style={{ fontSize: '16px' }}>
+            <span className="sidebar-shimmer" style={{ fontWeight: 700, color: '#f472b6' }}>iTECify</span>
+            <span style={{ fontWeight: 400, color: 'rgba(255,255,255,0.4)' }}>{' · editor'}</span>
+          </span>
         </div>
         <button
           onClick={() => navigate('/')}
@@ -228,7 +238,36 @@ export default function Sidebar({ files, activeFile, onSelectFile, loading, onCr
 
       {/* Explorer */}
       <div className="flex-1 overflow-y-auto">
-        {/* Section header */}
+
+        {/* + New Project — deasupra Explorer */}
+        {onNewProject && (
+          <div style={{ padding: '8px 8px 4px' }}>
+            <button
+              onClick={onNewProject}
+              style={{
+                width: '100%',
+                padding: '7px 12px',
+                fontSize: '11px',
+                fontWeight: 600,
+                fontFamily: 'monospace',
+                letterSpacing: '0.04em',
+                background: 'rgba(139,92,246,0.15)',
+                border: '1.5px solid rgba(139,92,246,0.4)',
+                borderRadius: '8px',
+                color: 'rgba(167,139,250,0.9)',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                textAlign: 'left' as const,
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(139,92,246,0.3)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(139,92,246,0.15)' }}
+            >
+              + New Project
+            </button>
+          </div>
+        )}
+
+        {/* Section header — Explorer */}
         <div className="flex items-center px-3 py-1.5">
           <button
             className="flex items-center gap-1 text-slate-400 text-xs uppercase tracking-widest hover:text-white flex-1"
@@ -259,32 +298,6 @@ export default function Sidebar({ files, activeFile, onSelectFile, loading, onCr
             </button>
           )}
         </div>
-
-        {onNewProject && (
-          <button
-            onClick={onNewProject}
-            style={{
-              width: 'calc(100% - 16px)',
-              margin: '4px 8px',
-              padding: '7px 12px',
-              fontSize: '11px',
-              fontWeight: 600,
-              fontFamily: 'monospace',
-              letterSpacing: '0.04em',
-              background: 'rgba(139,92,246,0.15)',
-              border: '1.5px solid rgba(139,92,246,0.4)',
-              borderRadius: '8px',
-              color: 'rgba(167,139,250,0.9)',
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-              textAlign: 'left' as const,
-            }}
-            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(139,92,246,0.3)' }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(139,92,246,0.15)' }}
-          >
-            + New Project
-          </button>
-        )}
 
         {/* New file panel */}
         {creating && (
