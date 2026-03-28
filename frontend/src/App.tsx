@@ -277,12 +277,6 @@ function EditorPage({ externalProjectId, onProjectName }: { externalProjectId?: 
 
   const handleCodeChange = (code: string) => {
     lastCodeRef.current = code
-    // User edited manually — clear AI highlight
-    if (aiDecorationIdsRef.current.length > 0) {
-      monacoEditorRef.current?.deltaDecorations(aiDecorationIdsRef.current, [])
-      aiDecorationIdsRef.current = []
-      setAiPendingInsert(null)
-    }
     if (toastShownRef.current) return
     if (code.toLowerCase().includes('itecify')) {
       toastShownRef.current = true
@@ -644,7 +638,32 @@ function EditorPage({ externalProjectId, onProjectName }: { externalProjectId?: 
                 onUsersChange={setConnectedUsers}
                 timeTravelContent={timeTravelContent}
                 currentUserId={user?.id}
-                onEditorMount={(editor) => { monacoEditorRef.current = editor }}
+                onEditorMount={(editor) => {
+                  monacoEditorRef.current = editor
+                  editor.onDidChangeModelContent((event) => {
+                    if (aiDecorationIdsRef.current.length === 0) return
+                    const model = editor.getModel()
+                    if (!model) return
+                    // Find which AI decoration IDs overlap with the changed lines
+                    const idsToRemove: string[] = []
+                    for (const change of event.changes) {
+                      const changedStart = change.range.startLineNumber
+                      const changedEnd = change.range.endLineNumber
+                      for (const id of aiDecorationIdsRef.current) {
+                        const decorRange = model.getDecorationRange(id)
+                        if (!decorRange) continue
+                        if (decorRange.startLineNumber <= changedEnd && decorRange.endLineNumber >= changedStart) {
+                          idsToRemove.push(id)
+                        }
+                      }
+                    }
+                    if (idsToRemove.length === 0) return
+                    editor.deltaDecorations(idsToRemove, [])
+                    const remaining = aiDecorationIdsRef.current.filter(id => !idsToRemove.includes(id))
+                    aiDecorationIdsRef.current = remaining
+                    if (remaining.length === 0) setAiPendingInsert(null)
+                  })
+                }}
                 onSaveSnapshotNow={(fn) => { saveSnapshotNowRef.current = fn }}
               />
             ) : (
