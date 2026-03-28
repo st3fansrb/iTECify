@@ -11,6 +11,7 @@ import { useKonamiCode } from './hooks/useKonamiCode'
 import { useAuth } from './hooks/useAuth'
 import { useProjectFiles } from './hooks/useProjectFiles'
 import { useRealtimeEditor } from './hooks/useRealtimeEditor'
+import { useSharedTerminal } from './hooks/useSharedTerminal'
 import ConnectedUsers from './components/ConnectedUsers'
 import AIBlock from './components/AIBlock'
 import DashboardPage from './pages/DashboardPage'
@@ -120,7 +121,8 @@ function RealtimeEditor({
 }
 
 function EditorPage() {
-  const { files, loading: filesLoading, addFile } = useProjectFiles()
+  const { files, loading: filesLoading, addFile, projectId } = useProjectFiles()
+  const { outputs, broadcast, clearOutputs } = useSharedTerminal(projectId)
   const navigate = useNavigate()
   const [activeFileId, setActiveFileId] = useState<string>('')
   const [connectedUsers, setConnectedUsers] = useState<ConnectedUser[]>([])
@@ -184,6 +186,12 @@ function EditorPage() {
     setIsLoading(true)
     setIsBlocked(false)
     setOutput('')
+    clearOutputs()
+
+    const displayName = user?.email?.split('@')[0] ?? 'user'
+    const userId = user?.id ?? 'unknown'
+
+    broadcast({ userId, displayName, avatarColor: '#f472b6', type: 'command', content: `${activeFile.language}: ${activeFile.name}`, timestamp: new Date().toISOString() })
 
     try {
       const res = await fetch('/api/execute/stream', {
@@ -227,8 +235,10 @@ function EditorPage() {
 
             if (event.type === 'stdout') {
               setOutput(prev => prev + event.content)
+              broadcast({ userId, displayName, avatarColor: '#f472b6', type: 'stdout', content: event.content, timestamp: new Date().toISOString() })
             } else if (event.type === 'stderr') {
               setOutput(prev => prev + event.content)
+              broadcast({ userId, displayName, avatarColor: '#f472b6', type: 'stderr', content: event.content, timestamp: new Date().toISOString() })
             } else if (event.type === 'scan') {
               const warnings = event.warnings.map((w: { severity: string; message: string }) =>
                 `⚠ [${w.severity.toUpperCase()}] ${w.message}`
@@ -239,6 +249,9 @@ function EditorPage() {
               setOutput(prev => prev + `\n🛑 ${event.message}\n`)
             } else if (event.type === 'error') {
               setOutput(prev => prev + `ERROR: ${event.content}\n`)
+              broadcast({ userId, displayName, avatarColor: '#f472b6', type: 'stderr', content: `ERROR: ${event.content}\n`, timestamp: new Date().toISOString() })
+            } else if (event.type === 'exit') {
+              broadcast({ userId, displayName, avatarColor: '#f472b6', type: 'exit', content: String(event.code ?? 0), timestamp: new Date().toISOString() })
             }
           } catch {
             // skip malformed SSE line
@@ -257,6 +270,14 @@ function EditorPage() {
       setIsLoading(false)
     }
   }
+
+  const remoteOutput = outputs.length > 0
+    ? outputs.map(e => {
+        if (e.type === 'command') return `▶ [${e.displayName}] ${e.content}\n`
+        if (e.type === 'exit') return `[${e.displayName}] exited (${e.content})\n`
+        return e.content
+      }).join('')
+    : ''
 
   return (
     <div style={BG_STYLE}>
@@ -382,10 +403,10 @@ function EditorPage() {
           borderTop: '1px solid rgba(236,72,153,0.25)',
         }}>
           <TerminalOutput
-            output={output}
+            output={output || remoteOutput}
             isLoading={isLoading}
             onRun={() => handleRun(false)}
-            onClear={() => { setOutput(''); setIsBlocked(false) }}
+            onClear={() => { setOutput(''); setIsBlocked(false); clearOutputs() }}
             collapsed={terminalCollapsed}
             onToggleCollapse={() => setTerminalCollapsed(c => !c)}
             isBlocked={isBlocked}

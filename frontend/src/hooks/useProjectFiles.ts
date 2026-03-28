@@ -35,12 +35,14 @@ export interface UseProjectFilesReturn {
   loading: boolean
   error: string | null
   addFile: (name: string, language: string) => Promise<void>
+  projectId: string
 }
 
 export function useProjectFiles(): UseProjectFilesReturn {
   const [files, setFiles] = useState<ProjectFile[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [projectId, setProjectId] = useState('')
   const projectIdRef = useRef<string>('')
 
   useEffect(() => {
@@ -63,6 +65,7 @@ export function useProjectFiles(): UseProjectFilesReturn {
         if (existing) {
           projectId = existing.id
           projectIdRef.current = projectId
+          setProjectId(projectId)
         } else {
           // ── 2. Creează proiectul (primul user care se loghează) ─────────────
           const { data: created, error: createErr } = await supabase
@@ -74,6 +77,7 @@ export function useProjectFiles(): UseProjectFilesReturn {
           if (createErr || !created) throw new Error(`Failed to create project: ${createErr?.message ?? ''}`)
           projectId = created.id
           projectIdRef.current = projectId
+          setProjectId(projectId)
         }
 
         // ── 3. Caută fișierele existente ──────────────────────────────────────
@@ -126,5 +130,5 @@ export function useProjectFiles(): UseProjectFilesReturn {
     }
   }, [])
 
-  return { files, loading, error, addFile }
+  return { files, loading, error, addFile, projectId }
 }
