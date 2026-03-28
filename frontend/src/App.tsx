@@ -428,24 +428,25 @@ function EditorPage() {
                 currentUserId={user?.id}
               />
             ) : (
-              <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+              <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                 <div style={{
-                  position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10,
+                  flexShrink: 0,
                   background: 'rgba(139,92,246,0.08)',
                   borderBottom: '1px solid rgba(139,92,246,0.2)',
                   padding: '4px 16px',
                   fontSize: '11px', fontFamily: 'monospace',
                   color: 'rgba(139,92,246,0.7)',
                   letterSpacing: '0.04em',
-                  pointerEvents: 'none',
                 }}>
                   🔒 Personal Editor — visible only to you
                 </div>
-                <CodeEditor
-                  language={activeFile.language}
-                  value={personalCode}
-                  onChange={handlePersonalCodeChange}
-                />
+                <div style={{ flex: 1, overflow: 'hidden' }}>
+                  <CodeEditor
+                    language={activeFile.language}
+                    value={personalCode}
+                    onChange={handlePersonalCodeChange}
+                  />
+                </div>
               </div>
             )
           ) : (
