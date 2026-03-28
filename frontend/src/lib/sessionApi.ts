@@ -106,14 +106,38 @@ export async function sendInvitation(projectId: string, email: string): Promise<
   if (error) throw new Error(`sendInvitation: ${error.message}`)
 }
 
-/** Accept a pending invitation — marks as accepted. */
-export async function acceptInvitation(invitationId: string): Promise<void> {
-  const { error } = await supabase
+/** Accept a pending invitation — marks as accepted and adds user to project_members. */
+export async function acceptInvitation(invitationId: string): Promise<string> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('acceptInvitation: not authenticated')
+
+  // Fetch the invitation to get project_id
+  const { data: inv, error: fetchErr } = await supabase
+    .from('invitations')
+    .select('project_id')
+    .eq('id', invitationId)
+    .single()
+
+  if (fetchErr || !inv) throw new Error(`acceptInvitation: ${fetchErr?.message ?? 'not found'}`)
+
+  // Mark as accepted
+  const { error: updateErr } = await supabase
     .from('invitations')
     .update({ status: 'accepted' })
     .eq('id', invitationId)
 
-  if (error) throw new Error(`acceptInvitation: ${error.message}`)
+  if (updateErr) throw new Error(`acceptInvitation: ${updateErr.message}`)
+
+  // Add user to project_members (ignore if already a member)
+  const { error: memberErr } = await supabase
+    .from('project_members')
+    .insert({ project_id: inv.project_id, user_id: user.id, role: 'member' })
+
+  if (memberErr && !memberErr.code?.includes('23505')) {
+    throw new Error(`acceptInvitation (member): ${memberErr.message}`)
+  }
+
+  return inv.project_id
 }
 
 /** Reject a pending invitation — marks as rejected. */

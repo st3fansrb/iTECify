@@ -6,7 +6,7 @@ import { acceptInvitation, rejectInvitation, type Invitation } from '../lib/sess
 export interface UseInvitationsReturn {
   invitations: Invitation[]
   pendingCount: number
-  accept: (invitationId: string) => Promise<void>
+  accept: (invitationId: string) => Promise<string>
   reject: (invitationId: string) => Promise<void>
   loading: boolean
 }
@@ -74,9 +74,10 @@ export function useInvitations(userEmail: string | undefined): UseInvitationsRet
     }
   }, [userEmail])
 
-  const accept = async (invitationId: string) => {
-    await acceptInvitation(invitationId)
+  const accept = async (invitationId: string): Promise<string> => {
+    const projectId = await acceptInvitation(invitationId)
     setInvitations(prev => prev.filter(inv => inv.id !== invitationId))
+    return projectId
   }
 
   const reject = async (invitationId: string) => {
