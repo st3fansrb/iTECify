@@ -108,3 +108,17 @@
   - creat `hooks/usePersonalTerminal.ts` — state local pur, fără Supabase, expune personalOutputs/addPersonalEntry/clearPersonalOutputs
   - `TerminalOutput.tsx`: adăugat tabs Shared/My Terminal în header; personal tab afișează TerminalEntry[] cu culori per tip; Clear șterge tab-ul activ
   - `App.tsx`: integrat usePersonalTerminal, addPersonalEntry apelat la fiecare event SSE (command/stdout/stderr/error/exit), props noi pasate la TerminalOutput
+* [x] **[2026-03-28] UI — DashboardPage v2 — dashboard-bg animat + glassmorphism fix:**
+  - Înlocuit blob.png cu `dashboard-bg.png`: `filter: hue-rotate(260deg) saturate(3) brightness(1.5)` (alb→mov/roz), animație `dash-bg-spin 20s linear infinite` + `dash-bg-float 6s ease-in-out infinite` (translateY via margin-top)
+  - Glow orbs roz stânga-sus + mov dreapta-jos (opacitate ușor crescută față de v1)
+  - Carduri glassmorphism conform spec: `background rgba(255,255,255,0.05)`, `border rgba(249,168,212,0.15)`, hover border `rgba(249,168,212,0.45)` + glow roz `0 0 28px rgba(249,168,212,0.18)` + `translateY(-4px)`
+  - Animație `card-in` fade+slide-up cu delay 60ms per card (staggered)
+* [x] **[2026-03-28] UI — DashboardPage redesign creativ:**
+  - Fundal identic cu HomePage: `linear-gradient(135deg, #1a0533→#2d1b4e→#0f0c29)` + blob animat (`blob-float`) + grid overlay + orbi roz/mov
+  - Titlu "Projects" cu gradient text `#fff→#f9a8d4→#d8b4fe`, label "Your workspace" monospace roz
+  - Buton "+ New project" cu același stil ca "Get Started" din HomePage (gradient roz/mov semi-transparent, blur, hover translateY + glow)
+  - Carduri glassmorphism: `backdrop-filter:blur(18px)`, border roz dinamic, hover `translateY(-4px)` + glow colorat per proiect
+  - Animație `card-in` (fade + slide-up) cu delay staggered (60ms per card) via `animation-delay`
+  - Icon bubble colorat random deterministic per project.id (8 culori × 12 iconițe) în loc de 📂 gri
+  - Bara de accent color gradient jos-stânga pe fiecare card
+  - Component separat `ProjectCard` pentru gestionarea hover state per card
