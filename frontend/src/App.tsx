@@ -85,7 +85,7 @@ function RealtimeEditor({
         await saveSnapshot(val, currentUserId ?? null)
         lastSavedCodeRef.current = val
       }
-    }, 30_000)
+    }, 10_000)
   }, [saveSnapshot, currentUserId])
   useEffect(() => () => { if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current) }, [])
 
