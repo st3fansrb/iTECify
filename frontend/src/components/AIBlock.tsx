@@ -5,6 +5,7 @@
  */
 
 import { useState, useRef, useCallback } from 'react'
+import { useAuth } from '../hooks/useAuth'
 
 interface AIBlockProps {
   /** Currently visible code in the editor — used as context for AI. */
@@ -24,6 +25,7 @@ export default function AIBlock({ currentCode, language }: AIBlockProps) {
   const [loading, setLoading] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const { session } = useAuth()
 
   const scrollToBottom = () => {
     setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
@@ -41,13 +43,16 @@ export default function AIBlock({ currentCode, language }: AIBlockProps) {
     scrollToBottom()
 
     try {
-      const res = await fetch('http://localhost:3001/api/ai', {
+      const res = await fetch('http://localhost:3001/api/ai/generate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`,
+        },
         body: JSON.stringify({ prompt, code: currentCode, language }),
       })
       const data = await res.json()
-      const reply = data.reply ?? data.error ?? 'No response from AI.'
+      const reply = data.generatedCode ?? data.error ?? 'No response from AI.'
       setMessages(prev => [...prev, { role: 'assistant', text: reply }])
     } catch {
       setMessages(prev => [...prev, { role: 'assistant', text: 'Could not reach AI backend.' }])
