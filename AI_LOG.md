@@ -32,6 +32,11 @@
 * [x] UI — AIBlock: TriqBot repositionat la bottom: 200px, right: 24px (deasupra terminalului)
 * [x] UI — AIBlock: TriqBot poziționat fix la position:fixed, right:32px, top:50vh, transform:translateY(-50%) — centrat vertical pe ecran, drag eliminat complet
 * [x] UI — LoginPage: header card centrat (display:flex, flexDirection:column, alignItems:center, textAlign:center)
+* [x] Fix — useProjectFiles: project lookup filtrat și după owner_id (tabela projects nu are user_id)
+* [x] Fix — useRealtimeEditor: toate .on() listeners separați explicit înainte de .subscribe() — fix "cannot add presence callbacks after joining a channel"
+* [x] Fix — useRealtimeEditor: Supabase Presence API eliminat complet. Broadcast pur cu event 'cursor': canal creat cu { config: { broadcast: { self: false } } }, channel.send() pentru update/leave, channel.on('broadcast', { event: 'cursor' }) pentru recepție. Heartbeat 3s, stale purge 9s, leave la unmount. Build OK.
+* [x] Fix — supabase.ts: createClient cu opțiuni realtime explicite (eventsPerSecond: 10, timeout: 20000) — fix CHANNEL_ERROR WebSocket
+* [x] Fix — useRealtimeEditor: channelName bazat pe projectId (toți userii în același room); fallback pe fileName în loc de fileId dacă projectId lipsește
 * [x] Debug — console.log adăugat: remoteCursors în CodeEditor.tsx + presence state în useRealtimeEditor.ts + init/subscribe/track în useRealtimeEditor.ts (pentru verificare funcționare Presence)
 * [x] Feature 2 — Cursoare live în editor:
   - useRealtimeEditor: cursor schimbat din `number | null` → `{ lineNumber, column } | null`; updateCursor actualizat; remoteCursors expus în return

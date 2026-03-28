@@ -51,14 +51,17 @@ export function useProjectFiles(): UseProjectFilesReturn {
     const setup = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser()
+        console.log('[useProjectFiles] user:', user?.id, user?.email)
         if (!user) throw new Error('Not authenticated')
 
         // ── 1. Caută proiectul partajat ───────────────────────────────────────
-        const { data: existing } = await supabase
+        const { data: existing, error: findErr } = await supabase
           .from('projects')
           .select('id')
           .eq('name', DEMO_PROJECT_NAME)
+          .eq('owner_id', user.id)
           .maybeSingle()
+        console.log('[useProjectFiles] project lookup → data:', existing, 'error:', findErr)
 
         let projectId: string
 
@@ -87,6 +90,7 @@ export function useProjectFiles(): UseProjectFilesReturn {
           .eq('project_id', projectId)
           .order('name')
 
+        console.log('[useProjectFiles] files lookup → data:', existingFiles, 'error:', filesErr)
         if (filesErr) throw new Error(`Failed to fetch files: ${filesErr.message}`)
 
         if (existingFiles && existingFiles.length > 0) {
