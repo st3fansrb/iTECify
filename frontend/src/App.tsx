@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { useState, useEffect, useRef } from 'react'
 import Sidebar from './components/Sidebar'
 import CodeEditor from './components/CodeEditor'
@@ -121,6 +121,7 @@ function RealtimeEditor({
 
 function EditorPage() {
   const { files, loading: filesLoading, addFile } = useProjectFiles()
+  const navigate = useNavigate()
   const [activeFileId, setActiveFileId] = useState<string>('')
   const [connectedUsers, setConnectedUsers] = useState<ConnectedUser[]>([])
   const [output, setOutput] = useState('')
@@ -290,8 +291,8 @@ function EditorPage() {
           borderBottom: '1px solid rgba(255,255,255,0.08)',
           padding: '0 8px',
         }}>
-          <div style={{ flex: 1, display: 'flex' }}>
-            {files.map((file) => (
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
+{files.map((file) => (
               <button key={file.id} onClick={() => setActiveFileId(file.id)} style={{
                 padding: '8px 16px', fontSize: '12px',
                 background: activeFileId === file.id ? 'rgba(236,72,153,0.1)' : 'transparent',

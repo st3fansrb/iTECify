@@ -25,6 +25,8 @@
 * [x] UI — Dropdownuri navbar: onMouseLeave pe wrapper (nu click afară), zIndex 99999, bg rgba(8,4,25,0.98), text #ffffff, scrollbar roz, max-height 350px
 * [x] UI — Marquee banner: text rgba(255,255,255,0.25), bg rgba(0,0,0,0.4) blur(5px), font 11px, separator · , border subtil 0.05
 * [x] Fix — zIndex layering: navbar 99999, marquee 1, dropdownuri 999999
+* [x] UI — Editor tab bar: buton ← Home (transparent, border roz subtil, useNavigate la /)
+* [x] UI — Sidebar: titlu iTECify 16px/800, buton ← Home sub titlu (font monospace 11px, roz subtil, hover #f9a8d4, useNavigate la /)
 
 ## ❌ Erori Întâlnite și Încercări Eșuate
 *(Când primești o eroare, documentează abordarea greșită aici pentru a nu o repeta)*

@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 interface FileItem {
   id?: string
@@ -66,6 +67,7 @@ function FileBadge({ filename }: { filename: string }) {
 }
 
 export default function Sidebar({ files, activeFile, onSelectFile, loading, onCreateFile }: SidebarProps) {
+  const navigate = useNavigate()
   const [expanded, setExpanded] = useState(true)
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState('')
@@ -83,8 +85,26 @@ export default function Sidebar({ files, activeFile, onSelectFile, loading, onCr
   return (
     <div className="w-64 bg-slate-900 border-r border-slate-700 flex flex-col h-full select-none">
       {/* Logo / Title */}
-      <div className="px-4 py-3 border-b border-slate-700">
-        <span className="text-white font-bold text-sm tracking-widest uppercase">iTECify</span>
+      <div className="border-b border-slate-700">
+        <div className="px-4 py-3">
+          <span style={{ fontSize: '16px', fontWeight: 800 }} className="text-white tracking-widest uppercase">iTECify</span>
+        </div>
+        <button
+          onClick={() => navigate('/')}
+          style={{
+            width: '100%', padding: '10px 8px',
+            background: 'transparent', border: 'none',
+            borderBottom: '1px solid rgba(255,255,255,0.1)',
+            color: 'rgba(249,168,212,0.6)', fontSize: '13px',
+            cursor: 'pointer', textAlign: 'left',
+            fontFamily: 'monospace',
+            transition: 'color 0.2s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.color = '#f9a8d4' }}
+          onMouseLeave={e => { e.currentTarget.style.color = 'rgba(249,168,212,0.6)' }}
+        >
+          ← Home
+        </button>
       </div>
 
       {/* Explorer */}
