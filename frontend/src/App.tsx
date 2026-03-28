@@ -592,7 +592,20 @@ function EditorPage({ externalProjectId, onProjectName }: { externalProjectId?: 
             animation: 'ai-slide-in 0.2s ease both',
           }}>
             <span style={{ color: '#a78bfa', letterSpacing: '0.06em' }}>✦ AI-generated code</span>
-            <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: '10px' }}>highlighted in editor until you edit it</span>
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: '6px' }}>
+            <button
+              onClick={() => {
+                // Accept — keep code, clear decorations
+                monacoEditorRef.current?.deltaDecorations(aiDecorationIdsRef.current, [])
+                aiDecorationIdsRef.current = []
+                setAiPendingInsert(null)
+              }}
+              style={{
+                padding: '2px 10px', fontSize: '11px', fontWeight: 700, fontFamily: 'monospace',
+                background: 'rgba(52,211,153,0.2)', border: '1px solid rgba(52,211,153,0.5)',
+                borderRadius: '5px', color: '#34d399', cursor: 'pointer',
+              }}
+            >✓ Accept</button>
             <button
               onClick={() => {
                 // Reject — restore pre-insert content and clear decorations
@@ -609,12 +622,12 @@ function EditorPage({ externalProjectId, onProjectName }: { externalProjectId?: 
                 setAiPendingInsert(null)
               }}
               style={{
-                marginLeft: 'auto',
                 padding: '2px 10px', fontSize: '11px', fontWeight: 700, fontFamily: 'monospace',
                 background: 'rgba(248,113,113,0.15)', border: '1px solid rgba(248,113,113,0.4)',
                 borderRadius: '5px', color: '#f87171', cursor: 'pointer',
               }}
             >✕ Reject</button>
+            </div>
           </div>
         )}
 

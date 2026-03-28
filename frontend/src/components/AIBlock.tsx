@@ -58,6 +58,8 @@ export default function AIBlock({ currentCode, language, terminalHeight = 192, t
       const data = await res.json()
       const reply = data.generatedCode ?? data.error ?? 'No response from AI.'
       setMessages(prev => [...prev, { role: 'assistant', text: reply }])
+      // Auto-insert into editor — Accept/Reject banner will appear
+      insertCode?.(reply)
     } catch {
       setMessages(prev => [...prev, { role: 'assistant', text: 'Could not reach AI backend.' }])
     } finally {
@@ -238,23 +240,6 @@ export default function AIBlock({ currentCode, language, terminalHeight = 192, t
                 }}>
                   {m.text}
                 </div>
-                {m.role === 'assistant' && insertCode && (
-                  <button
-                    onClick={() => insertCode(m.text)}
-                    title="Accept — insert AI code at cursor"
-                    style={{
-                      alignSelf: 'flex-start',
-                      padding: '2px 10px', fontSize: '10px', fontFamily: 'monospace', fontWeight: 700,
-                      background: 'rgba(52,211,153,0.15)', border: '1px solid rgba(52,211,153,0.4)',
-                      borderRadius: '4px', color: '#34d399', cursor: 'pointer',
-                      transition: 'opacity 0.2s',
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.opacity = '0.7' }}
-                    onMouseLeave={e => { e.currentTarget.style.opacity = '1' }}
-                  >
-                    ✓ Accept
-                  </button>
-                )}
               </div>
             ))}
             {loading && (
