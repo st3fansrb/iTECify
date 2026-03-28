@@ -76,6 +76,80 @@ function FileBadge({ filename }: { filename: string }) {
 
 const FALLBACK_COLORS = ['#f472b6', '#818cf8', '#34d399', '#fb923c', '#38bdf8']
 
+// ── Per-extension gradient styles for file rows (Madalina) ───────────────────
+const EXT_FILE_STYLE: Record<string, { gradient: string; gradientActive: string; borderColor: string }> = {
+  js:   { gradient: 'linear-gradient(135deg, rgba(247,223,30,0.08), rgba(247,223,30,0.02))',   gradientActive: 'linear-gradient(135deg, rgba(247,223,30,0.18), rgba(247,223,30,0.06))',   borderColor: '#f7df1e' },
+  jsx:  { gradient: 'linear-gradient(135deg, rgba(247,223,30,0.08), rgba(247,223,30,0.02))',   gradientActive: 'linear-gradient(135deg, rgba(247,223,30,0.18), rgba(247,223,30,0.06))',   borderColor: '#f7df1e' },
+  py:   { gradient: 'linear-gradient(135deg, rgba(55,118,171,0.1),  rgba(55,118,171,0.02))',   gradientActive: 'linear-gradient(135deg, rgba(55,118,171,0.22),  rgba(55,118,171,0.07))',   borderColor: '#3776ab' },
+  rs:   { gradient: 'linear-gradient(135deg, rgba(206,66,43,0.1),   rgba(206,66,43,0.02))',    gradientActive: 'linear-gradient(135deg, rgba(206,66,43,0.22),   rgba(206,66,43,0.07))',    borderColor: '#ce422b' },
+  ts:   { gradient: 'linear-gradient(135deg, rgba(49,120,198,0.1),  rgba(49,120,198,0.02))',   gradientActive: 'linear-gradient(135deg, rgba(49,120,198,0.22),  rgba(49,120,198,0.07))',   borderColor: '#3178c6' },
+  tsx:  { gradient: 'linear-gradient(135deg, rgba(49,120,198,0.1),  rgba(49,120,198,0.02))',   gradientActive: 'linear-gradient(135deg, rgba(49,120,198,0.22),  rgba(49,120,198,0.07))',   borderColor: '#3178c6' },
+  c:    { gradient: 'linear-gradient(135deg, rgba(168,185,204,0.08), rgba(168,185,204,0.02))', gradientActive: 'linear-gradient(135deg, rgba(168,185,204,0.18), rgba(168,185,204,0.06))', borderColor: '#a8b9cc' },
+  cpp:  { gradient: 'linear-gradient(135deg, rgba(168,185,204,0.08), rgba(168,185,204,0.02))', gradientActive: 'linear-gradient(135deg, rgba(168,185,204,0.18), rgba(168,185,204,0.06))', borderColor: '#a8b9cc' },
+  go:   { gradient: 'linear-gradient(135deg, rgba(0,172,215,0.08),  rgba(0,172,215,0.02))',    gradientActive: 'linear-gradient(135deg, rgba(0,172,215,0.18),  rgba(0,172,215,0.07))',    borderColor: '#00acd7' },
+  java: { gradient: 'linear-gradient(135deg, rgba(248,152,32,0.08), rgba(248,152,32,0.02))',   gradientActive: 'linear-gradient(135deg, rgba(248,152,32,0.18), rgba(248,152,32,0.07))',   borderColor: '#f89820' },
+}
+const DEFAULT_FILE_STYLE = {
+  gradient: 'linear-gradient(135deg, rgba(249,168,212,0.07), rgba(249,168,212,0.02))',
+  gradientActive: 'linear-gradient(135deg, rgba(249,168,212,0.18), rgba(249,168,212,0.06))',
+  borderColor: '#f9a8d4',
+}
+function getFileStyle(filename: string) {
+  const ext = filename.split('.').pop()?.toLowerCase() ?? ''
+  return EXT_FILE_STYLE[ext] ?? DEFAULT_FILE_STYLE
+}
+
+// ── FileRow — manages own hover state, per-language gradient (Madalina) ───────
+function FileRow({ file, isActive, onSelect }: { file: FileItem; isActive: boolean; onSelect: () => void }) {
+  const [hovered, setHovered] = useState(false)
+  const fileStyle = getFileStyle(file.name)
+
+  return (
+    <li
+      onClick={onSelect}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: '6px',
+        margin: '3px 8px',
+        padding: '8px 10px',
+        borderRadius: '8px',
+        fontSize: '13px', fontFamily: 'monospace',
+        cursor: 'pointer',
+        listStyle: 'none',
+        background: isActive ? fileStyle.gradientActive : hovered ? fileStyle.gradient : 'transparent',
+        color: isActive ? '#ffffff' : hovered ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.6)',
+        borderLeft: `${isActive ? '3px' : '2px'} solid ${isActive || hovered ? fileStyle.borderColor : 'transparent'}`,
+        transform: hovered && !isActive ? 'translateX(4px)' : 'translateX(0)',
+        boxShadow: isActive
+          ? `inset 0 0 20px ${fileStyle.borderColor}1a, 0 0 10px ${fileStyle.borderColor}18`
+          : hovered ? `inset 0 0 20px ${fileStyle.borderColor}12` : 'none',
+        transition: 'background 0.25s ease, color 0.25s ease, border-color 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease',
+        animationName: isActive ? 'sidebar-pulse' : 'none',
+        animationDuration: '2.4s',
+        animationTimingFunction: 'ease-in-out',
+        animationIterationCount: 'infinite',
+      } as React.CSSProperties}
+    >
+      <FileBadge filename={file.name} />
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+        {file.name}
+      </span>
+    </li>
+  )
+}
+
+function SidebarKeyframes() {
+  return (
+    <style>{`
+      @keyframes sidebar-pulse {
+        0%, 100% { border-left-width: 3px; }
+        50%       { border-left-width: 5px; }
+      }
+    `}</style>
+  )
+}
+
 export default function Sidebar({ files, activeFile, onSelectFile, loading, onCreateFile, onRestoreDefaults, members = [], onlineUserIds = [], onNewProject, projectName }: SidebarProps) {
   const navigate = useNavigate()
   const [expanded, setExpanded] = useState(true)
@@ -110,6 +184,7 @@ export default function Sidebar({ files, activeFile, onSelectFile, loading, onCr
 
   return (
     <div className="w-64 bg-slate-900 border-r border-slate-700 flex flex-col h-full select-none">
+      <SidebarKeyframes />
       {/* Logo / Title */}
       <div className="border-b border-slate-700">
         <div className="px-4 py-3">
@@ -304,43 +379,18 @@ export default function Sidebar({ files, activeFile, onSelectFile, loading, onCr
               </span>
             </div>
 
-            {/* Files list with VS Code indentation */}
-            <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-              {files.map((file, index) => {
-                const isLast = index === files.length - 1
+            {/* Files list — per-language gradient hover (Madalina) */}
+            <ul style={{ listStyle: 'none', margin: 0, padding: '4px 0' }}>
+              {files.map((file) => {
                 const isActive = activeFile === (file.id ?? file.name)
                 const key = file.id ?? file.name
                 return (
-                  <li
+                  <FileRow
                     key={key}
-                    onClick={() => onSelectFile(key)}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: '4px',
-                      padding: '3px 12px 3px 24px',
-                      fontSize: '13px', fontFamily: 'monospace',
-                      cursor: 'pointer',
-                      background: isActive ? 'rgba(236,72,153,0.15)' : 'transparent',
-                      color: isActive ? '#f9a8d4' : 'rgba(255,255,255,0.65)',
-                      borderLeft: isActive ? '2px solid #f472b6' : '2px solid transparent',
-                      transition: 'background 0.15s',
-                      position: 'relative',
-                    }}
-                    onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
-                    onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent' }}
-                  >
-                    {/* Tree connector line */}
-                    <span style={{
-                      position: 'absolute', left: '14px',
-                      color: 'rgba(255,255,255,0.15)', fontSize: '11px',
-                      fontFamily: 'monospace', lineHeight: 1,
-                    }}>
-                      {isLast ? '\u2514' : '\u251C'}
-                    </span>
-                    <FileBadge filename={file.name} />
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {file.name}
-                    </span>
-                  </li>
+                    file={file}
+                    isActive={isActive}
+                    onSelect={() => onSelectFile(key)}
+                  />
                 )
               })}
             </ul>
