@@ -59,8 +59,8 @@ const ORBS = (
 
 // ── Inner component that holds realtime state for the active file ──────────────
 function RealtimeEditor({
-  fileId, projectId, language, onCodeChange, onUsersChange, timeTravelContent, currentUserId,
-}: { fileId: string; projectId?: string; language: string; onCodeChange: (code: string) => void; onUsersChange: (users: ConnectedUser[]) => void; timeTravelContent: string | null; currentUserId?: string | null }) {
+  fileId, projectId, language, onCodeChange, onUsersChange, timeTravelContent, currentUserId, onEditorMount,
+}: { fileId: string; projectId?: string; language: string; onCodeChange: (code: string) => void; onUsersChange: (users: ConnectedUser[]) => void; timeTravelContent: string | null; currentUserId?: string | null; onEditorMount?: (editor: import('monaco-editor').editor.IStandaloneCodeEditor) => void }) {
   const { code, updateCode, updateCursor, loading, isSaving, connectedUsers } = useRealtimeEditor({
     projectId,
     fileId,
@@ -117,6 +117,7 @@ function RealtimeEditor({
         onCursorChange={isTimeTraveling ? undefined : updateCursor}
         readOnly={isTimeTraveling}
         currentUserId={currentUserId}
+        onEditorMount={onEditorMount}
       />
     </div>
   )
@@ -144,6 +145,7 @@ function EditorPage({ externalProjectId, onProjectName }: { externalProjectId?: 
   const personalCodeMap = useRef<Map<string, string>>(new Map())
   const toastShownRef = useRef(false)
   const lastCodeRef = useRef('')
+  const monacoEditorRef = useRef<import('monaco-editor').editor.IStandaloneCodeEditor | null>(null)
   const { user, session, signOut } = useAuth()
   const [timeTravelContent, setTimeTravelContent] = useState<string | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(true)
@@ -547,6 +549,7 @@ function EditorPage({ externalProjectId, onProjectName }: { externalProjectId?: 
                 onUsersChange={setConnectedUsers}
                 timeTravelContent={timeTravelContent}
                 currentUserId={user?.id}
+                onEditorMount={(editor) => { monacoEditorRef.current = editor }}
               />
             ) : (
               <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -633,7 +636,27 @@ function EditorPage({ externalProjectId, onProjectName }: { externalProjectId?: 
         </div>
       </div>
 
-      <AIBlock currentCode={lastCodeRef.current} language={activeFile?.language ?? 'plaintext'} terminalHeight={terminalHeight} terminalCollapsed={terminalCollapsed} />
+      <AIBlock
+        currentCode={lastCodeRef.current}
+        language={activeFile?.language ?? 'plaintext'}
+        terminalHeight={terminalHeight}
+        terminalCollapsed={terminalCollapsed}
+        getSelectedCode={() => {
+          const editor = monacoEditorRef.current
+          if (!editor) return lastCodeRef.current
+          const selection = editor.getSelection()
+          if (!selection || selection.isEmpty()) return lastCodeRef.current
+          return editor.getModel()?.getValueInRange(selection) ?? lastCodeRef.current
+        }}
+        insertCode={(code: string) => {
+          const editor = monacoEditorRef.current
+          if (!editor) return
+          const selection = editor.getSelection()
+          const range = selection ?? { startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 1 }
+          editor.executeEdits('ai-insert', [{ range, text: code }])
+          editor.focus()
+        }}
+      />
 
       {toast && (
         <div style={{
