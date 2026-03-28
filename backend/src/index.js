@@ -270,6 +270,54 @@ app.post('/api/execute/stream', executeLimiter, requireAuth, async (req, res) =>
 
 app.use('/api/ai', aiLimiter, aiRoute);
 
+// ─── Invite Route ──────────────────────────────────────────────────────────────
+
+const inviteLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  message: { error: 'Too many invite requests. Please wait.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.post('/api/invite', inviteLimiter, requireAuth, async (req, res) => {
+  const { email, projectId } = req.body;
+
+  if (!email || !projectId) {
+    return res.status(400).json({ error: 'Missing required fields: email, projectId' });
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({ error: 'Invalid email address' });
+  }
+
+  try {
+    const { createClient } = require('@supabase/supabase-js');
+    const adminClient = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_KEY,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    );
+
+    const { error } = await adminClient.auth.admin.inviteUserByEmail(email, {
+      redirectTo: `${process.env.CLIENT_URL || 'http://localhost:5173'}/editor`,
+    });
+
+    if (error) {
+      // User already exists — invitation still created in DB, no magic link needed
+      if (error.message?.includes('already been registered')) {
+        return res.json({ success: true, alreadyRegistered: true });
+      }
+      return res.status(500).json({ error: error.message });
+    }
+
+    return res.json({ success: true, alreadyRegistered: false });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 // ─── Start ─────────────────────────────────────────────────────────────────────
 
 app.listen(PORT, () => {

@@ -83,6 +83,49 @@ export async function joinSession(inviteCode: string): Promise<string> {
   return project.id
 }
 
+// ── Invitations ───────────────────────────────────────────────────────────────
+
+export interface Invitation {
+  id: string
+  project_id: string
+  invited_email: string
+  invited_by: string
+  status: 'pending' | 'accepted' | 'rejected'
+  created_at: string
+}
+
+/** Send an invitation to a collaborator by email. */
+export async function sendInvitation(projectId: string, email: string): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('sendInvitation: not authenticated')
+
+  const { error } = await supabase
+    .from('invitations')
+    .insert({ project_id: projectId, invited_email: email.toLowerCase().trim(), invited_by: user.id })
+
+  if (error) throw new Error(`sendInvitation: ${error.message}`)
+}
+
+/** Accept a pending invitation — marks as accepted. */
+export async function acceptInvitation(invitationId: string): Promise<void> {
+  const { error } = await supabase
+    .from('invitations')
+    .update({ status: 'accepted' })
+    .eq('id', invitationId)
+
+  if (error) throw new Error(`acceptInvitation: ${error.message}`)
+}
+
+/** Reject a pending invitation — marks as rejected. */
+export async function rejectInvitation(invitationId: string): Promise<void> {
+  const { error } = await supabase
+    .from('invitations')
+    .update({ status: 'rejected' })
+    .eq('id', invitationId)
+
+  if (error) throw new Error(`rejectInvitation: ${error.message}`)
+}
+
 /** Returns all projects the user is a member of (owned + joined). */
 export async function getUserProjects(userId: string): Promise<UserProject[]> {
   const { data, error } = await supabase

@@ -10,9 +10,10 @@ import KonamiExplosion from './components/KonamiExplosion'
 import { useKonamiCode } from './hooks/useKonamiCode'
 import { useAuth } from './hooks/useAuth'
 import { useProjectFiles } from './hooks/useProjectFiles'
-import { useRealtimeEditor } from './hooks/useRealtimeEditor'
+import { useRealtimeEditor, type ConnectedUser } from './hooks/useRealtimeEditor'
 import { useSharedTerminal } from './hooks/useSharedTerminal'
 import ConnectedUsers from './components/ConnectedUsers'
+import UserMenu from './components/UserMenu'
 import AIBlock from './components/AIBlock'
 import DashboardPage from './pages/DashboardPage'
 import TimeTravel from './components/TimeTravel'
@@ -55,7 +56,6 @@ const ORBS = (
   </>
 )
 
-interface ConnectedUser { user_id: string; cursor_line: number | null }
 
 // ── Inner component that holds realtime state for the active file ──────────────
 function RealtimeEditor({
@@ -133,7 +133,7 @@ function EditorPage() {
   const [toast, setToast] = useState(false)
   const toastShownRef = useRef(false)
   const lastCodeRef = useRef('')
-  const { user, session } = useAuth()
+  const { user, session, signOut } = useAuth()
   const [timeTravelContent, setTimeTravelContent] = useState<string | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [terminalHeight, setTerminalHeight] = useState(192)
@@ -343,6 +343,13 @@ function EditorPage() {
             ))}
           </div>
           <ConnectedUsers users={connectedUsers} currentUserId={user?.id} />
+            {user && (
+              <UserMenu
+                user={user}
+                projectId={projectId}
+                onSignOut={signOut}
+              />
+            )}
         </div>
 
         {/* Editor area — remount when file changes to reset realtime state */}

@@ -1,10 +1,6 @@
 import Editor, { type OnMount } from '@monaco-editor/react'
 import type * as monaco from 'monaco-editor'
-
-interface ConnectedUser {
-  user_id: string
-  cursor_line: number | null
-}
+import type { ConnectedUser } from '../hooks/useRealtimeEditor'
 
 interface CodeEditorProps {
   language: string
@@ -90,7 +86,7 @@ export default function CodeEditor({ language, value, onChange, onEditorMount, c
             opacity: 0.88,
           }}
         >
-          L{u.cursor_line} · {u.user_id.slice(0, 6)}
+          L{u.cursor} · {u.userId?.slice(0, 6) ?? '?'}
         </div>
       ))}
     </div>

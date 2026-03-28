@@ -136,8 +136,14 @@ export function useRealtimeEditor({
         // Presence: who's in this room right now
         .on<PresencePayload>('presence', { event: 'sync' }, () => {
           const state = channel.presenceState<PresencePayload>()
+          const seen = new Set<string>()
           const users: ConnectedUser[] = Object.values(state)
             .flat()
+            .filter((p) => {
+              if (!p.userId || p.userId === uid || seen.has(p.userId)) return false
+              seen.add(p.userId)
+              return true
+            })
             .map((p) => ({
               userId: p.userId,
               displayName: p.displayName ?? null,
