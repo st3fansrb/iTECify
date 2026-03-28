@@ -2,28 +2,22 @@
  * useRealtimeEditor — syncs a single file's content in real time between all editors
  * in the same project room.
  *
- * Usage (in Membru 1's CodeEditor wrapper):
- *   const { code, updateCode, updateCursor, loading, isSaving, connectedUsers } =
- *     useRealtimeEditor({ projectId, fileId, initialContent })
- *   <Editor value={code} onChange={(v) => updateCode(v ?? '')} />
- *
  * Strategy:
  *   - Fetches latest content from `files` table on mount.
- *   - Subscribes to `postgres_changes` on `files` filtered by `project_id=eq.{projectId}`.
- *   - Remote changes for THIS file applied only if `updated_by` !== current user (no echo).
- *   - Local changes are debounced 500 ms before writing to DB (no write storm).
+ *   - Local changes are broadcast instantly via Supabase Broadcast (<100ms peer-to-peer).
+ *   - DB write is debounced 1000ms for persistence only (not for live sync).
+ *   - postgres_changes acts as fallback for late-joining users.
  *   - Presence per project-channel exposes `connectedUsers` with cursor + active file.
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import supabase from '../lib/supabase'
 
-const DEBOUNCE_MS = 500
+const DB_DEBOUNCE_MS = 1000
 
 export interface UseRealtimeEditorOptions {
   projectId?: string
   fileId: string
-  /** Used as the initial code value while the DB fetch is in flight. */
   initialContent: string
 }
 
@@ -36,7 +30,6 @@ export interface ConnectedUser {
   userId: string
   displayName: string | null
   avatarColor: string | null
-  /** Monaco cursor position (1-based), null if not reported. */
   cursor: CursorPosition | null
   activeFileId: string | null
 }
@@ -44,14 +37,10 @@ export interface ConnectedUser {
 export interface UseRealtimeEditorReturn {
   code: string
   updateCode: (newContent: string) => void
-  /** Call with the current Monaco cursor position to broadcast to teammates. */
   updateCursor: (cursor: CursorPosition | null) => void
   loading: boolean
-  /** True during the 500ms debounce + DB write. */
   isSaving: boolean
-  /** Everyone currently in this project room, with cursor + active file. */
   connectedUsers: ConnectedUser[]
-  /** Same as connectedUsers — use in CodeEditor for remote cursor rendering. */
   remoteCursors: ConnectedUser[]
 }
 
@@ -80,7 +69,7 @@ export function useRealtimeEditor({
     cursor: null,
     activeFileId: fileId,
   })
-  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const dbDebounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
 
   // ── 1. Fetch latest content from DB ──────────────────────────────────────────
@@ -102,7 +91,7 @@ export function useRealtimeEditor({
     return () => { cancelled = true }
   }, [fileId])
 
-  // ── 2. Realtime channel: postgres_changes (per project) + presence ────────────
+  // ── 2. Realtime channel: broadcast + postgres_changes fallback + presence ─────
   useEffect(() => {
     let channelToClean: ReturnType<typeof supabase.channel> | null = null
 
@@ -110,9 +99,7 @@ export function useRealtimeEditor({
       const { data: { user } } = await supabase.auth.getUser()
       const uid = user?.id ?? null
       currentUserIdRef.current = uid
-      console.log('useRealtimeEditor init, fileId:', fileId, 'user:', uid)
 
-      // Fetch profile for presence display name / avatar
       if (uid) {
         const { data: profile } = await supabase
           .from('profiles')
@@ -130,21 +117,32 @@ export function useRealtimeEditor({
       channelRef.current = channel
 
       channel
-        // All file UPDATE events for this project — filter to active file client-side
+        // ── Broadcast: instant peer-to-peer sync ──────────────────────────────
+        .on('broadcast', { event: 'code-update' }, ({ payload }) => {
+          if (payload.fileId !== fileId) return
+          if (payload.userId === currentUserIdRef.current) return
+          setCode(payload.content)
+        })
+        // ── postgres_changes: fallback for late-joining users ─────────────────
         .on(
           'postgres_changes',
-          { event: '*', schema: 'public', table: 'files', ...(projectId ? { filter: `project_id=eq.${projectId}` } : { filter: `id=eq.${fileId}` }) },
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'files',
+            ...(projectId ? { filter: `project_id=eq.${projectId}` } : { filter: `id=eq.${fileId}` }),
+          },
           (payload) => {
             const updated = payload.new as { id: string; content: string; updated_by: string | null }
             if (updated.id !== fileId) return
+            // Only apply if we haven't already received this via broadcast
             if (updated.updated_by === currentUserIdRef.current) return
             setCode(updated.content ?? '')
           }
         )
-        // Presence: who's in this room right now
+        // ── Presence: who's in this room ──────────────────────────────────────
         .on('presence', { event: 'sync' }, () => {
           const state = channel.presenceState<PresencePayload>()
-          console.log('presence state:', state)
           const seen = new Set<string>()
           const users: ConnectedUser[] = Object.values(state)
             .flat()
@@ -163,9 +161,7 @@ export function useRealtimeEditor({
           setConnectedUsers(users)
         })
         .subscribe(async (status) => {
-          console.log('channel subscribed, status:', status)
           if (status === 'SUBSCRIBED' && uid) {
-            console.log('tracking presence')
             await channel.track({
               userId: uid,
               ...presenceRef.current,
@@ -178,7 +174,7 @@ export function useRealtimeEditor({
     void setup()
 
     return () => {
-      if (debounceTimer.current) clearTimeout(debounceTimer.current)
+      if (dbDebounceTimer.current) clearTimeout(dbDebounceTimer.current)
       if (channelToClean) void supabase.removeChannel(channelToClean)
       channelRef.current = null
     }
@@ -193,13 +189,22 @@ export function useRealtimeEditor({
     void channel.track({ userId: uid, ...presenceRef.current, activeFileId: fileId })
   }, [fileId])
 
-  // ── 4. updateCode — called by Monaco on every keystroke ──────────────────────
+  // ── 4. updateCode — broadcast instantly, persist to DB with debounce ──────────
   const updateCode = useCallback(
     (newContent: string) => {
       setCode(newContent)
       setIsSaving(true)
-      if (debounceTimer.current) clearTimeout(debounceTimer.current)
-      debounceTimer.current = setTimeout(() => {
+
+      // Instant broadcast to all connected users (no DB round-trip)
+      void channelRef.current?.send({
+        type: 'broadcast',
+        event: 'code-update',
+        payload: { fileId, content: newContent, userId: currentUserIdRef.current },
+      })
+
+      // DB write debounced for persistence
+      if (dbDebounceTimer.current) clearTimeout(dbDebounceTimer.current)
+      dbDebounceTimer.current = setTimeout(() => {
         void supabase
           .from('files')
           .update({
@@ -212,7 +217,7 @@ export function useRealtimeEditor({
             setIsSaving(false)
             if (error) console.error('[useRealtimeEditor] DB update failed:', error)
           })
-      }, DEBOUNCE_MS)
+      }, DB_DEBOUNCE_MS)
     },
     [fileId]
   )
