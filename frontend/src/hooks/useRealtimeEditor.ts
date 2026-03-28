@@ -231,7 +231,7 @@ export function useRealtimeEditor({
       channelRef.current = null
       usersMap.current.clear()
     }
-  }, [projectId, fileId, flushUsers])
+  }, [projectId, fileId, fileName, flushUsers])
 
   // ── 3. updateCursor — broadcast cursor on every position change ───────────────
   const updateCursor = useCallback((cursor: CursorPosition | null) => {
