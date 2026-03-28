@@ -188,7 +188,10 @@ export function useProjectFiles(externalProjectId?: string): UseProjectFilesRetu
       .insert({ name, language, content, project_id: pid })
       .select('id, name, language')
       .single()
-    if (!insertErr && data) {
+    if (insertErr) {
+      console.error('[addFile] error:', insertErr)
+      alert(`Eroare la creare fișier: ${insertErr.message}`)
+    } else if (data) {
       setFiles(prev => [...prev, data])
     }
   }, [])

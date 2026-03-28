@@ -672,17 +672,23 @@ interface OpenProject {
 function MultiProjectEditorWrapper() {
   const location = useLocation()
   const navigate = useNavigate()
-  const incomingId = (location.state as { projectId?: string } | null)?.projectId
+  const searchParams = new URLSearchParams(location.search)
+  const incomingId =
+    searchParams.get('project') ??
+    (location.state as { projectId?: string } | null)?.projectId
 
   const [openProjects, setOpenProjects] = useState<OpenProject[]>([
-    { id: incomingId, name: incomingId ? '…' : 'Demo' },
+    { id: incomingId ?? undefined, name: incomingId ? '…' : 'Demo' },
   ])
   const [activeIdx, setActiveIdx] = useState(0)
   const prevIdRef = useRef(incomingId)
 
   // Detect navigation to a new project
   useEffect(() => {
-    const pid = (location.state as { projectId?: string } | null)?.projectId
+    const sp = new URLSearchParams(location.search)
+    const pid =
+      sp.get('project') ??
+      (location.state as { projectId?: string } | null)?.projectId
     if (pid === prevIdRef.current) return
     prevIdRef.current = pid
     if (!pid) return

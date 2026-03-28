@@ -169,8 +169,8 @@ export default function UserMenu({ user, projectId, onSignOut }: UserMenuProps) 
                         <button
                           onClick={async () => {
                             try {
-                              await accept(inv.id)
-                              window.location.href = '/editor'
+                              const pid = await accept(inv.id)
+                              window.location.href = `/editor?project=${pid}`
                             } catch (err) {
                               alert('Accept failed: ' + (err instanceof Error ? err.message : String(err)))
                             }
