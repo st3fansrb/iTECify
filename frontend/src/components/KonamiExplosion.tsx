@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import catSrc from '../assets/logo.png'
+import catSrc from '../assets/cat-access.png'
+import accessBgSrc from '../assets/access-bg.png'
 
 interface Particle {
   x: number; y: number
@@ -84,28 +85,52 @@ export default function KonamiExplosion({ onClose }: { onClose: () => void }) {
         position: 'fixed', inset: 0, zIndex: 9999,
         display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center',
-        background: 'rgba(0,0,0,0.88)',
-        backdropFilter: 'blur(8px)',
+        background: 'transparent',
         cursor: 'pointer',
+        overflow: 'hidden',
       }}
       onClick={onClose}
     >
-      <canvas ref={canvasRef} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
+      {/* Background image — hue-rotate infinit */}
+      <img
+        src={accessBgSrc}
+        alt=""
+        style={{
+          position: 'absolute', inset: 0,
+          width: '100%', height: '100%',
+          objectFit: 'cover',
+          opacity: 0.6,
+          zIndex: 0,
+          pointerEvents: 'none',
+          animation: 'k-hue-spin 10s linear infinite',
+        }}
+      />
 
-      {/* Cat — perfect center */}
+      {/* Dark overlay transparent — fără negru solid */}
+      <div style={{
+        position: 'absolute', inset: 0, zIndex: 1,
+        background: 'rgba(4,0,16,0.45)',
+        backdropFilter: 'blur(4px)',
+        pointerEvents: 'none',
+      }} />
+
+      {/* Particles canvas */}
+      <canvas ref={canvasRef} style={{ position: 'absolute', inset: 0, zIndex: 2, pointerEvents: 'none' }} />
+
+      {/* Cat logo — centrat perfect, float + glow roz */}
       <div style={{
         position: 'absolute', top: '50%', left: '50%',
         transform: 'translate(-50%, -50%)',
-        zIndex: 1, pointerEvents: 'none',
+        zIndex: 3, pointerEvents: 'none',
       }}>
         <img
           src={catSrc}
-          alt="access granted cat"
+          alt="access granted"
           style={{
-            width: '360px', height: '360px',
-            objectFit: 'cover',
-            borderRadius: '20px',
-            boxShadow: '0 0 50px rgba(244,114,182,0.7), 0 0 100px rgba(244,114,182,0.35), 0 0 160px rgba(167,139,250,0.2)',
+            width: '200px', height: '200px',
+            objectFit: 'contain',
+            borderRadius: '16px',
+            boxShadow: '0 0 40px rgba(244,114,182,0.8), 0 0 80px rgba(244,114,182,0.45), 0 0 130px rgba(167,139,250,0.3)',
             animation: 'k-pop 0.6s cubic-bezier(0.34,1.56,0.64,1) both, cat-float 3s 0.6s ease-in-out infinite',
           }}
         />
@@ -116,50 +141,74 @@ export default function KonamiExplosion({ onClose }: { onClose: () => void }) {
         style={{
           position: 'absolute', bottom: '8%', left: '50%',
           transform: 'translateX(-50%)',
-          zIndex: 1, textAlign: 'center',
+          zIndex: 4, textAlign: 'center',
           whiteSpace: 'nowrap', pointerEvents: 'none',
         }}
         onClick={e => e.stopPropagation()}
       >
-        <div className="k-glitch" data-text="ACCESS GRANTED" style={{
-          fontSize: '44px', fontWeight: 900, letterSpacing: '0.12em',
-          color: 'white', fontFamily: 'monospace',
-          textShadow: '0 0 40px rgba(249,168,212,0.6)',
-          animation: 'k-fade-in 0.4s 0.5s both',
-          position: 'relative', marginBottom: '8px',
-        }}>
+        {/* ACCESS GRANTED — gradient text roz/mov */}
+        <div
+          className="k-glitch"
+          data-text="ACCESS GRANTED"
+          style={{
+            fontSize: '54px', fontWeight: 900,
+            letterSpacing: '0.3em',
+            fontFamily: 'monospace',
+            background: 'linear-gradient(135deg, #ffffff 0%, #f9a8d4 45%, #d8b4fe 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            animation: 'k-fade-in 0.4s 0.5s both',
+            position: 'relative',
+            marginBottom: '10px',
+          }}
+        >
           ACCESS GRANTED
         </div>
 
         <p style={{
-          color: 'rgba(255,255,255,0.35)', fontSize: '12px',
-          letterSpacing: '0.15em', marginBottom: '20px',
+          color: 'rgba(255,255,255,0.45)', fontSize: '12px',
+          letterSpacing: '0.18em', marginBottom: '24px',
           animation: 'k-fade-in 0.4s 0.8s both',
           fontFamily: 'monospace',
+          textShadow: '0 0 12px rgba(249,168,212,0.4)',
         }}>
           IDENTITY VERIFIED — CLEARANCE LEVEL: VOID
         </p>
 
+        {/* Enter the void button — mai mare, glow roz */}
         <button
           onClick={handleEnterVoid}
           style={{
             pointerEvents: 'all',
-            padding: '12px 32px',
-            background: 'linear-gradient(135deg, rgba(236,72,153,0.15), rgba(139,92,246,0.15))',
-            border: '1px solid rgba(236,72,153,0.5)',
-            borderRadius: '10px',
-            color: 'white', fontSize: '15px', fontWeight: 700,
+            padding: '16px 40px',
+            background: 'linear-gradient(135deg, rgba(236,72,153,0.18), rgba(139,92,246,0.18))',
+            border: '1.5px solid rgba(236,72,153,0.65)',
+            borderRadius: '12px',
+            color: 'white', fontSize: '16px', fontWeight: 700,
             cursor: 'pointer', fontFamily: 'monospace',
-            letterSpacing: '0.08em',
+            letterSpacing: '0.1em',
+            backdropFilter: 'blur(12px)',
             animation: 'k-fade-in 0.4s 1.1s both, void-pulse 1.8s 1.5s ease-in-out infinite',
-            backdropFilter: 'blur(10px)',
+            transition: 'all 0.25s ease',
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.background = 'linear-gradient(135deg, rgba(236,72,153,0.35), rgba(139,92,246,0.35))'
+            e.currentTarget.style.boxShadow = '0 0 30px rgba(236,72,153,0.6), 0 0 60px rgba(139,92,246,0.3)'
+            e.currentTarget.style.borderColor = 'rgba(236,72,153,0.95)'
+            e.currentTarget.style.transform = 'translateY(-2px) scale(1.03)'
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.background = 'linear-gradient(135deg, rgba(236,72,153,0.18), rgba(139,92,246,0.18))'
+            e.currentTarget.style.boxShadow = 'none'
+            e.currentTarget.style.borderColor = 'rgba(236,72,153,0.65)'
+            e.currentTarget.style.transform = 'translateY(0) scale(1)'
           }}
         >
           Enter the void &gt;
         </button>
 
         <p style={{
-          marginTop: '12px', fontSize: '11px', color: 'rgba(255,255,255,0.2)',
+          marginTop: '14px', fontSize: '11px', color: 'rgba(255,255,255,0.25)',
           fontFamily: 'monospace', animation: 'k-fade-in 0.4s 1.4s both',
         }}>
           or click anywhere to dismiss
@@ -167,22 +216,26 @@ export default function KonamiExplosion({ onClose }: { onClose: () => void }) {
       </div>
 
       <style>{`
+        @keyframes k-hue-spin {
+          from { filter: hue-rotate(0deg); }
+          to   { filter: hue-rotate(360deg); }
+        }
         @keyframes k-pop {
           0%   { transform: scale(0) rotate(-180deg); opacity: 0; }
-          60%  { transform: scale(1.3) rotate(10deg);  opacity: 1; }
+          60%  { transform: scale(1.15) rotate(8deg);  opacity: 1; }
           100% { transform: scale(1)   rotate(0deg);   opacity: 1; }
         }
         @keyframes cat-float {
-          0%, 100% { transform: translateY(0px); }
-          50%       { transform: translateY(-12px); }
+          0%, 100% { transform: translateY(0px);   }
+          50%       { transform: translateY(-14px); }
         }
         @keyframes k-fade-in {
           from { opacity: 0; transform: translateY(16px); }
           to   { opacity: 1; transform: translateY(0); }
         }
         @keyframes void-pulse {
-          0%, 100% { box-shadow: 0 0 20px rgba(236,72,153,0.3), 0 0 40px rgba(139,92,246,0.1); }
-          50%       { box-shadow: 0 0 40px rgba(236,72,153,0.6), 0 0 80px rgba(139,92,246,0.3); }
+          0%, 100% { box-shadow: 0 0 20px rgba(236,72,153,0.35), 0 0 40px rgba(139,92,246,0.15); }
+          50%       { box-shadow: 0 0 48px rgba(236,72,153,0.65), 0 0 90px rgba(139,92,246,0.35); }
         }
         .k-glitch::before,
         .k-glitch::after {
@@ -192,16 +245,19 @@ export default function KonamiExplosion({ onClose }: { onClose: () => void }) {
           width: 100%;
           font-size: inherit; font-weight: inherit;
           letter-spacing: inherit; font-family: inherit;
+          background: inherit;
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
         }
         .k-glitch::before {
-          color: #f472b6;
           animation: glitch-1 2.5s infinite;
           clip-path: polygon(0 20%, 100% 20%, 100% 40%, 0 40%);
+          filter: hue-rotate(-30deg);
         }
         .k-glitch::after {
-          color: #a78bfa;
           animation: glitch-2 2.5s infinite;
           clip-path: polygon(0 60%, 100% 60%, 100% 80%, 0 80%);
+          filter: hue-rotate(30deg);
         }
         @keyframes glitch-1 {
           0%,  90%, 100% { transform: translate(0); opacity: 0; }

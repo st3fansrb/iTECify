@@ -108,6 +108,14 @@
   - creat `hooks/usePersonalTerminal.ts` — state local pur, fără Supabase, expune personalOutputs/addPersonalEntry/clearPersonalOutputs
   - `TerminalOutput.tsx`: adăugat tabs Shared/My Terminal în header; personal tab afișează TerminalEntry[] cu culori per tip; Clear șterge tab-ul activ
   - `App.tsx`: integrat usePersonalTerminal, addPersonalEntry apelat la fiecare event SSE (command/stdout/stderr/error/exit), props noi pasate la TerminalOutput
+* [x] **[2026-03-28] UI — KonamiExplosion: access-bg.png + hue-rotate + cat centrat + gradient text + buton mare:**
+  - Fundal: `access-bg.png` `position:absolute inset:0 width:100% height:100% object-fit:cover opacity:0.6` + animație `k-hue-spin 10s linear infinite` (hue-rotate 0→360deg)
+  - Overlay: `rgba(4,0,16,0.45)` + `backdropFilter:blur(4px)` — transparent, fără negru solid
+  - Cat `cat-access.png`: 200×200px, `object-fit:contain`, centrat absolut, glow `box-shadow 0 0 40px/80px/130px` roz/mov, animație `cat-float 3s infinite`
+  - Titlu: `font-size 54px`, `font-weight 900`, `letter-spacing 0.3em`, gradient text `#fff→#f9a8d4→#d8b4fe` via `-webkit-background-clip:text`
+  - Glitch pseudo-elements: moștenesc gradientul prin `background:inherit`, `hue-rotate` ±30deg pentru shift colorat
+  - Buton: `padding 16px 40px`, `font-size 16px`, `border 1.5px rgba(236,72,153,0.65)`, hover glow `0 0 30px/60px` + `translateY(-2px) scale(1.03)`
+  - Import corectat: `logo.png` → `cat-access.png`, adăugat import `access-bg.png`
 * [x] **[2026-03-28] UI — Sidebar: titlu proiect prominent + hover glow + puls pe activ:**
   - Titlu proiect: `font-size 16px`, `font-weight 700`, `color #ffffff`, `letter-spacing 0.05em`, separator `border-bottom 1px solid rgba(255,255,255,0.07)` dedesubt
   - FileRow: tranziție `all 0.3s ease` pe background/color/border-color/transform/box-shadow
