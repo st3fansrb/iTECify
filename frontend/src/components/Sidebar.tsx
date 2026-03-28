@@ -17,6 +17,8 @@ interface SidebarProps {
   onRestoreDefaults?: () => void
   members?: ProjectMember[]
   onlineUserIds?: string[]
+  onNewProject?: () => void
+  projectName?: string
 }
 
 const EXT_TO_LANG: Record<string, string> = {
@@ -74,7 +76,7 @@ function FileBadge({ filename }: { filename: string }) {
 
 const FALLBACK_COLORS = ['#f472b6', '#818cf8', '#34d399', '#fb923c', '#38bdf8']
 
-export default function Sidebar({ files, activeFile, onSelectFile, loading, onCreateFile, onRestoreDefaults, members = [], onlineUserIds = [] }: SidebarProps) {
+export default function Sidebar({ files, activeFile, onSelectFile, loading, onCreateFile, onRestoreDefaults, members = [], onlineUserIds = [], onNewProject, projectName }: SidebarProps) {
   const navigate = useNavigate()
   const [expanded, setExpanded] = useState(true)
   const [creating, setCreating] = useState(false)
@@ -143,13 +145,52 @@ export default function Sidebar({ files, activeFile, onSelectFile, loading, onCr
           {onCreateFile && (
             <button
               title="New file"
-              className="text-slate-500 hover:text-pink-300 text-base leading-none px-1 transition-colors"
               onClick={openCreate}
+              style={{
+                padding: '3px 10px',
+                fontSize: '16px',
+                fontWeight: 700,
+                background: 'rgba(236,72,153,0.2)',
+                border: '1.5px solid rgba(244,114,182,0.5)',
+                borderRadius: '7px',
+                color: '#f9a8d4',
+                cursor: 'pointer',
+                lineHeight: 1,
+                transition: 'all 0.2s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(236,72,153,0.4)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(236,72,153,0.2)' }}
             >
               +
             </button>
           )}
         </div>
+
+        {onNewProject && (
+          <button
+            onClick={onNewProject}
+            style={{
+              width: 'calc(100% - 16px)',
+              margin: '4px 8px',
+              padding: '7px 12px',
+              fontSize: '11px',
+              fontWeight: 600,
+              fontFamily: 'monospace',
+              letterSpacing: '0.04em',
+              background: 'rgba(139,92,246,0.15)',
+              border: '1.5px solid rgba(139,92,246,0.4)',
+              borderRadius: '8px',
+              color: 'rgba(167,139,250,0.9)',
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              textAlign: 'left' as const,
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(139,92,246,0.3)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(139,92,246,0.15)' }}
+          >
+            + New Project
+          </button>
+        )}
 
         {/* New file panel */}
         {creating && (
@@ -237,25 +278,64 @@ export default function Sidebar({ files, activeFile, onSelectFile, loading, onCr
         {loading && <p className="px-6 py-2 text-xs text-slate-500">Loading files…</p>}
 
         {expanded && !loading && (
-          <ul>
-            {files.map((file) => {
-              const key = file.id ?? file.name
-              return (
-                <li
-                  key={key}
-                  onClick={() => onSelectFile(key)}
-                  className={`flex items-center gap-2 px-6 py-1.5 text-sm cursor-pointer transition-colors ${
-                    activeFile === key
-                      ? 'bg-slate-700 text-white'
-                      : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                  }`}
-                >
-                  <FileBadge filename={file.name} />
-                  {file.name}
-                </li>
-              )
-            })}
-          </ul>
+          <div>
+            {/* Project root */}
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '4px',
+              padding: '4px 12px',
+              fontSize: '12px', fontWeight: 600,
+              color: 'rgba(255,255,255,0.6)',
+              fontFamily: 'monospace',
+              userSelect: 'none',
+            }}>
+              <span style={{ fontSize: '11px', opacity: 0.6 }}>&#9662;</span>
+              <span>&#128193;</span>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {projectName ?? 'iTECify Demo'}
+              </span>
+            </div>
+
+            {/* Files list with VS Code indentation */}
+            <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+              {files.map((file, index) => {
+                const isLast = index === files.length - 1
+                const isActive = activeFile === (file.id ?? file.name)
+                const key = file.id ?? file.name
+                return (
+                  <li
+                    key={key}
+                    onClick={() => onSelectFile(key)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '4px',
+                      padding: '3px 12px 3px 24px',
+                      fontSize: '13px', fontFamily: 'monospace',
+                      cursor: 'pointer',
+                      background: isActive ? 'rgba(236,72,153,0.15)' : 'transparent',
+                      color: isActive ? '#f9a8d4' : 'rgba(255,255,255,0.65)',
+                      borderLeft: isActive ? '2px solid #f472b6' : '2px solid transparent',
+                      transition: 'background 0.15s',
+                      position: 'relative',
+                    }}
+                    onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
+                    onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent' }}
+                  >
+                    {/* Tree connector line */}
+                    <span style={{
+                      position: 'absolute', left: '14px',
+                      color: 'rgba(255,255,255,0.15)', fontSize: '11px',
+                      fontFamily: 'monospace', lineHeight: 1,
+                    }}>
+                      {isLast ? '\u2514' : '\u251C'}
+                    </span>
+                    <FileBadge filename={file.name} />
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {file.name}
+                    </span>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
         )}
 
         {/* Restore defaults button — shown when no files */}

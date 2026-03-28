@@ -48,13 +48,15 @@ export interface UseProjectFilesReturn {
   addFile: (name: string, language: string) => Promise<void>
   restoreDefaults: () => Promise<void>
   projectId: string
+  projectName: string
 }
 
-export function useProjectFiles(): UseProjectFilesReturn {
+export function useProjectFiles(externalProjectId?: string): UseProjectFilesReturn {
   const [files, setFiles] = useState<ProjectFile[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [projectId, setProjectId] = useState('')
+  const [projectName, setProjectName] = useState('')
   const projectIdRef = useRef<string>('')
 
   useEffect(() => {
@@ -66,6 +68,23 @@ export function useProjectFiles(): UseProjectFilesReturn {
         if (!user) throw new Error('Not authenticated')
 
         let projectId: string
+
+        // ── 0. Dacă avem externalProjectId, îl folosim direct ────────────────
+        if (externalProjectId) {
+          projectId = externalProjectId
+          projectIdRef.current = projectId
+          setProjectId(projectId)
+
+          // Fetch project name
+          const { data: proj } = await supabase
+            .from('projects')
+            .select('name')
+            .eq('id', externalProjectId)
+            .single()
+          if (!cancelled && proj) setProjectName(proj.name)
+
+          // Skip to fetch files below
+        } else {
 
         // ── 1. Caută proiectul owned de user ─────────────────────────────────
         const { data: ownedRows } = await supabase
@@ -121,6 +140,8 @@ export function useProjectFiles(): UseProjectFilesReturn {
           }
         }
 
+        } // end else (no externalProjectId)
+
         // ── 3. Caută fișierele existente ──────────────────────────────────────
         const { data: existingFiles, error: filesErr } = await supabase
           .from('files')
@@ -156,7 +177,7 @@ export function useProjectFiles(): UseProjectFilesReturn {
 
     void setup()
     return () => { cancelled = true }
-  }, [])
+  }, [externalProjectId])
 
   const addFile = useCallback(async (name: string, language: string) => {
     const pid = projectIdRef.current
@@ -190,5 +211,5 @@ export function useProjectFiles(): UseProjectFilesReturn {
     if (created) setFiles(prev => [...prev, ...created])
   }, [])
 
-  return { files, loading, error, addFile, restoreDefaults, projectId }
+  return { files, loading, error, addFile, restoreDefaults, projectId, projectName }
 }
