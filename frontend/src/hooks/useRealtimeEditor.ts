@@ -24,17 +24,25 @@ export interface UseRealtimeEditorOptions {
   initialContent: string
 }
 
+export interface ConnectedUser {
+  user_id: string
+  /** Monaco editor line number (1-based), null if not reported. */
+  cursor_line: number | null
+}
+
 export interface UseRealtimeEditorReturn {
   code: string
   updateCode: (newContent: string) => void
+  /** Call with the current Monaco cursor line to broadcast position to teammates. */
+  updateCursor: (line: number | null) => void
   loading: boolean
   /** True în intervalul de 500ms debounce + cât durează write-ul în DB. */
   isSaving: boolean
-  /** Supabase user IDs of everyone currently viewing this file. */
-  connectedUsers: string[]
+  /** Everyone currently viewing this file, with optional cursor position. */
+  connectedUsers: ConnectedUser[]
 }
 
-type PresencePayload = { user_id: string }
+type PresencePayload = { user_id: string; cursor_line: number | null }
 
 export function useRealtimeEditor({
   fileId,
@@ -43,7 +51,7 @@ export function useRealtimeEditor({
   const [code, setCode] = useState(initialContent)
   const [loading, setLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
-  const [connectedUsers, setConnectedUsers] = useState<string[]>([])
+  const [connectedUsers, setConnectedUsers] = useState<ConnectedUser[]>([])
 
   const currentUserIdRef = useRef<string | null>(null)
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -100,12 +108,14 @@ export function useRealtimeEditor({
         // Track who else is viewing this file.
         .on<PresencePayload>('presence', { event: 'sync' }, () => {
           const state = channel.presenceState<PresencePayload>()
-          const users = Object.values(state).flat().map((p) => p.user_id)
+          const users: ConnectedUser[] = Object.values(state)
+            .flat()
+            .map((p) => ({ user_id: p.user_id, cursor_line: p.cursor_line ?? null }))
           setConnectedUsers(users)
         })
         .subscribe(async (status) => {
           if (status === 'SUBSCRIBED' && uid) {
-            await channel.track({ user_id: uid })
+            await channel.track({ user_id: uid, cursor_line: null })
           }
         })
     }
@@ -119,7 +129,15 @@ export function useRealtimeEditor({
     }
   }, [fileId])
 
-  // ── 3. updateCode — called by Monaco on every keystroke ──────────────────────
+  // ── 3. updateCursor — broadcast cursor position to teammates ─────────────────
+  const updateCursor = useCallback((line: number | null) => {
+    const channel = channelRef.current
+    const uid = currentUserIdRef.current
+    if (!channel || !uid) return
+    void channel.track({ user_id: uid, cursor_line: line })
+  }, [])
+
+  // ── 4. updateCode — called by Monaco on every keystroke ──────────────────────
   const updateCode = useCallback(
     (newContent: string) => {
       setCode(newContent)
@@ -144,5 +162,5 @@ export function useRealtimeEditor({
     [fileId]
   )
 
-  return { code, updateCode, loading, isSaving, connectedUsers }
+  return { code, updateCode, updateCursor, loading, isSaving, connectedUsers }
 }

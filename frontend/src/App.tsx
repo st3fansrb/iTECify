@@ -10,6 +10,10 @@ import KonamiExplosion from './components/KonamiExplosion'
 import { useKonamiCode } from './hooks/useKonamiCode'
 import { useAuth } from './hooks/useAuth'
 import { useRealtimeEditor } from './hooks/useRealtimeEditor'
+import type { ConnectedUser } from './hooks/useRealtimeEditor'
+import { useFileHistory } from './hooks/useFileHistory'
+import { useProfile } from './hooks/useProfile'
+import { useFileChanges } from './hooks/useFileChanges'
 import supabase from './lib/supabase'
 
 const INITIAL_FILES = [
@@ -95,17 +99,23 @@ async function createOrJoinRoom(roomId: string | null): Promise<{ roomId: string
 
 // ── Avatar indicator for connected users ─────────────────────────────────────
 
-function UserDot({ userId }: { userId: string }) {
-  const initials = userId.slice(0, 2).toUpperCase()
-  const hue = [...userId].reduce((acc, c) => acc + c.charCodeAt(0), 0) % 360
+function UserDot({ user }: { user: ConnectedUser }) {
+  const { profile } = useProfile(user.user_id)
+  const displayName = profile?.display_name || user.user_id
+  const initials = displayName.slice(0, 2).toUpperCase()
+  const hue = [...user.user_id].reduce((acc, c) => acc + c.charCodeAt(0), 0) % 360
+  const tooltipText = user.cursor_line
+    ? `${displayName} — linha ${user.cursor_line}`
+    : displayName
   return (
-    <div title={userId} style={{
+    <div title={tooltipText} style={{
       width: '26px', height: '26px', borderRadius: '50%',
-      background: `hsl(${hue}, 70%, 55%)`,
+      background: profile?.avatar_color ?? `hsl(${hue}, 70%, 55%)`,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       fontSize: '10px', fontWeight: 700, color: 'white',
       border: '2px solid rgba(255,255,255,0.15)',
       flexShrink: 0,
+      cursor: 'default',
     }}>
       {initials}
     </div>
@@ -133,13 +143,32 @@ function RealtimeEditorPage({
   const [toast, setToast] = useState(false)
   const toastShownRef = useRef(false)
 
+  // ── Task 1: Istoric versiuni ──────────────────────────────────────────────────
+  const [historyOpen, setHistoryOpen] = useState(false)
   const activeFileId = fileMap[activeFile]?.id ?? ''
+  const { entries: historyEntries, loading: historyLoading, fetchHistory, saveSnapshot } = useFileHistory(activeFileId)
+
+  // ── Task 4: Profil utilizator ─────────────────────────────────────────────────
+  const { profile: ownProfile, updateDisplayName } = useProfile(user?.id ?? null)
+  const [editingName, setEditingName] = useState(false)
+  const [nameInput, setNameInput] = useState('')
+
+  // ── Task 3: Notificări fișiere modificate ─────────────────────────────────────
+  const fileNameToId = Object.fromEntries(Object.entries(fileMap).map(([n, f]) => [n, f.id]))
+  const modifiedFiles = useFileChanges(fileNameToId, activeFile)
+
   const activeLanguage = INITIAL_FILES.find(f => f.name === activeFile)?.language ?? 'plaintext'
 
+  // ── Task 2: Presence cu cursor ────────────────────────────────────────────────
   const { code, updateCode, connectedUsers } = useRealtimeEditor({
     fileId: activeFileId,
     initialContent: localCodes[activeFile] ?? '',
   })
+
+  // Open history panel — fetch entries each time it opens
+  useEffect(() => {
+    if (historyOpen) void fetchHistory()
+  }, [historyOpen, fetchHistory])
 
   // Sync realtime code → local cache
   useEffect(() => {
@@ -162,6 +191,9 @@ function RealtimeEditorPage({
   }
 
   const handleRun = async () => {
+    // Save snapshot before running so history reflects what was executed.
+    void saveSnapshot(code, user?.id ?? null)
+
     setIsLoading(true)
     setOutput('Running...')
     try {
@@ -191,6 +223,22 @@ function RealtimeEditorPage({
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     })
+  }
+
+  const handleRestoreSnapshot = (content: string) => {
+    updateCode(content)
+    setHistoryOpen(false)
+  }
+
+  const handleStartRename = () => {
+    setNameInput(ownProfile?.display_name ?? user?.email?.split('@')[0] ?? '')
+    setEditingName(true)
+  }
+
+  const handleSaveName = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (nameInput.trim()) await updateDisplayName(nameInput)
+    setEditingName(false)
   }
 
   const handleSignOut = async () => {
@@ -227,7 +275,7 @@ function RealtimeEditorPage({
           <div style={{ display: 'flex' }}>
             {INITIAL_FILES.map((file) => (
               <button key={file.name} onClick={() => setActiveFile(file.name)} style={{
-                padding: '8px 16px', fontSize: '12px',
+                padding: '8px 16px', fontSize: '12px', position: 'relative',
                 background: activeFile === file.name ? 'rgba(236,72,153,0.1)' : 'transparent',
                 color: activeFile === file.name ? '#f9a8d4' : 'rgba(255,255,255,0.35)',
                 border: 'none',
@@ -235,19 +283,29 @@ function RealtimeEditorPage({
                 cursor: 'pointer', transition: 'all 0.2s', fontFamily: 'monospace',
               }}>
                 {file.name}
+                {/* Task 3 — dot pentru fișiere modificate de colegi */}
+                {modifiedFiles.has(file.name) && (
+                  <span style={{
+                    position: 'absolute', top: '6px', right: '4px',
+                    width: '6px', height: '6px', borderRadius: '50%',
+                    background: '#f472b6',
+                    boxShadow: '0 0 4px #f472b6',
+                    display: 'inline-block',
+                  }} />
+                )}
               </button>
             ))}
           </div>
 
-          {/* Right side: connected users + share + user + sign out */}
+          {/* Right side: connected users + share + user + history + sign out */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', paddingRight: '4px' }}>
 
-            {/* Connected users */}
+            {/* Task 2 — connected users with cursor info */}
             {connectedUsers.length > 0 && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#4ade80' }} />
                 <div style={{ display: 'flex', gap: '3px' }}>
-                  {connectedUsers.slice(0, 5).map(uid => <UserDot key={uid} userId={uid} />)}
+                  {connectedUsers.slice(0, 5).map(u => <UserDot key={u.user_id} user={u} />)}
                   {connectedUsers.length > 5 && (
                     <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', alignSelf: 'center' }}>
                       +{connectedUsers.length - 5}
@@ -256,6 +314,17 @@ function RealtimeEditorPage({
                 </div>
               </div>
             )}
+
+            {/* Task 1 — history button */}
+            <button onClick={() => setHistoryOpen(o => !o)} style={{
+              fontSize: '11px', padding: '4px 10px',
+              background: historyOpen ? 'rgba(236,72,153,0.15)' : 'rgba(255,255,255,0.05)',
+              border: `1px solid ${historyOpen ? 'rgba(236,72,153,0.4)' : 'rgba(255,255,255,0.1)'}`,
+              borderRadius: '6px', color: historyOpen ? '#f9a8d4' : 'rgba(255,255,255,0.4)',
+              cursor: 'pointer', transition: 'all 0.2s',
+            }}>
+              History
+            </button>
 
             {/* Share button */}
             <button onClick={handleShare} style={{
@@ -269,8 +338,37 @@ function RealtimeEditorPage({
               {copied ? 'Copiat!' : 'Share'}
             </button>
 
-            {/* User email */}
-            <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)' }}>{user?.email}</span>
+            {/* Task 4 — profile display name / rename */}
+            {editingName ? (
+              <form onSubmit={handleSaveName} style={{ display: 'flex', gap: '4px' }}>
+                <input
+                  autoFocus
+                  value={nameInput}
+                  onChange={e => setNameInput(e.target.value)}
+                  onBlur={() => setEditingName(false)}
+                  style={{
+                    fontSize: '11px', padding: '3px 8px',
+                    background: 'rgba(255,255,255,0.08)',
+                    border: '1px solid rgba(236,72,153,0.4)',
+                    borderRadius: '6px', color: 'white',
+                    outline: 'none', width: '120px',
+                    fontFamily: 'inherit',
+                  }}
+                />
+              </form>
+            ) : (
+              <span
+                title="Clic pentru a schimba numele"
+                onClick={handleStartRename}
+                style={{
+                  fontSize: '11px', color: 'rgba(255,255,255,0.35)',
+                  cursor: 'pointer',
+                  borderBottom: '1px dashed rgba(255,255,255,0.15)',
+                }}
+              >
+                {ownProfile?.display_name || user?.email}
+              </span>
+            )}
 
             {/* Sign out */}
             <button onClick={handleSignOut} style={{
@@ -299,6 +397,73 @@ function RealtimeEditorPage({
           <TerminalOutput output={output} isLoading={isLoading} onRun={handleRun} onClear={() => setOutput('')} />
         </div>
       </div>
+
+      {/* Task 1 — History panel */}
+      {historyOpen && (
+        <div style={{
+          position: 'absolute', right: 0, top: 0, bottom: 0, width: '300px',
+          zIndex: 50, display: 'flex', flexDirection: 'column',
+          background: 'rgba(8,4,18,0.97)',
+          backdropFilter: 'blur(24px)',
+          borderLeft: '1px solid rgba(236,72,153,0.2)',
+          boxShadow: '-8px 0 32px rgba(0,0,0,0.4)',
+        }}>
+          <div style={{
+            padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.07)',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            flexShrink: 0,
+          }}>
+            <span style={{ color: '#f9a8d4', fontSize: '12px', fontWeight: 600, fontFamily: 'monospace' }}>
+              {activeFile} — history
+            </span>
+            <button
+              onClick={() => setHistoryOpen(false)}
+              style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)', cursor: 'pointer', fontSize: '18px', lineHeight: 1 }}
+            >×</button>
+          </div>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {historyLoading ? (
+              <p style={{ color: 'rgba(255,255,255,0.25)', fontSize: '12px', padding: '12px', textAlign: 'center' }}>Se încarcă...</p>
+            ) : historyEntries.length === 0 ? (
+              <p style={{ color: 'rgba(255,255,255,0.25)', fontSize: '12px', padding: '12px', textAlign: 'center' }}>
+                Niciun snapshot yet.<br />Apasă Run pentru a salva primul.
+              </p>
+            ) : historyEntries.map(entry => (
+              <div key={entry.id} style={{
+                padding: '9px 11px', borderRadius: '8px',
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.06)',
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)', fontFamily: 'monospace' }}>
+                    {new Date(entry.saved_at).toLocaleString('ro-RO', {
+                      day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+                    })}
+                  </span>
+                  <button
+                    onClick={() => handleRestoreSnapshot(entry.content)}
+                    style={{
+                      fontSize: '10px', padding: '2px 8px',
+                      background: 'rgba(139,92,246,0.15)',
+                      border: '1px solid rgba(139,92,246,0.3)',
+                      borderRadius: '4px', color: '#c4b5fd',
+                      cursor: 'pointer', fontFamily: 'monospace',
+                    }}
+                  >Restore</button>
+                </div>
+                <pre style={{
+                  fontSize: '10px', color: 'rgba(200,200,215,0.4)',
+                  margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-all',
+                  maxHeight: '54px', overflow: 'hidden',
+                  fontFamily: '"Courier New", monospace', lineHeight: 1.5,
+                }}>
+                  {entry.content.slice(0, 120)}{entry.content.length > 120 ? '…' : ''}
+                </pre>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Easter egg toast */}
       {toast && (

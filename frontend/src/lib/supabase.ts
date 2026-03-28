@@ -21,6 +21,21 @@ export interface File {
   updated_by: string | null
 }
 
+export interface Profile {
+  id: string
+  display_name: string
+  avatar_color: string
+  updated_at: string
+}
+
+export interface FileHistoryEntry {
+  id: string
+  file_id: string
+  content: string
+  saved_by: string | null
+  saved_at: string
+}
+
 // ─── Supabase Database generic (gives us fully-typed .from() calls) ──────────
 
 type Database = {
@@ -44,6 +59,16 @@ type Database = {
         }
         Update: Partial<File>
       }
+      profiles: {
+        Row: Profile
+        Insert: { id: string; display_name?: string; avatar_color?: string; updated_at?: string }
+        Update: Partial<Omit<Profile, 'id'>>
+      }
+      file_history: {
+        Row: FileHistoryEntry
+        Insert: { id?: string; file_id: string; content: string; saved_by?: string | null; saved_at?: string }
+        Update: never
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
@@ -57,8 +82,8 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('[supabase] Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY in .env.local')
+  console.error('[supabase] Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY — copy frontend/.env.example to frontend/.env.local')
 }
 
-const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey)
+const supabase = createClient<Database>(supabaseUrl ?? '', supabaseAnonKey ?? '')
 export default supabase
