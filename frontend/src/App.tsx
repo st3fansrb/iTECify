@@ -127,6 +127,7 @@ function EditorPage() {
   const [output, setOutput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isBlocked, setIsBlocked] = useState(false)
+  const [stdin, setStdin] = useState('')
   const [toast, setToast] = useState(false)
   const toastShownRef = useRef(false)
   const lastCodeRef = useRef('')
@@ -187,7 +188,7 @@ function EditorPage() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session?.access_token}`,
         },
-        body: JSON.stringify({ language: activeFile.language, code: lastCodeRef.current, force }),
+        body: JSON.stringify({ language: activeFile.language, code: lastCodeRef.current, stdin, force }),
       })
 
       if (!res.ok || !res.body) {
@@ -377,6 +378,8 @@ function EditorPage() {
             onToggleCollapse={() => setTerminalCollapsed(c => !c)}
             isBlocked={isBlocked}
             onForceRun={() => handleRun(true)}
+            stdin={stdin}
+            onStdinChange={setStdin}
           />
         </div>
       </div>

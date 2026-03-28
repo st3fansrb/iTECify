@@ -7,9 +7,11 @@ interface TerminalOutputProps {
   onToggleCollapse?: () => void
   isBlocked?: boolean
   onForceRun?: () => void
+  stdin?: string
+  onStdinChange?: (value: string) => void
 }
 
-export default function TerminalOutput({ output, isLoading, onRun, onClear, collapsed = false, onToggleCollapse, isBlocked = false, onForceRun }: TerminalOutputProps) {
+export default function TerminalOutput({ output, isLoading, onRun, onClear, collapsed = false, onToggleCollapse, isBlocked = false, onForceRun, stdin = '', onStdinChange }: TerminalOutputProps) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
       {/* Terminal header */}
@@ -122,6 +124,40 @@ export default function TerminalOutput({ output, isLoading, onRun, onClear, coll
           )}
         </div>
       </div>
+
+      {/* stdin input — hidden when collapsed */}
+      {!collapsed && onStdinChange && (
+        <div style={{
+          borderBottom: '1px solid rgba(249,168,212,0.1)',
+          padding: '4px 12px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          background: 'rgba(0,0,0,0.2)',
+          flexShrink: 0,
+        }}>
+          <span style={{ fontSize: '10px', color: 'rgba(249,168,212,0.4)', fontFamily: 'monospace', whiteSpace: 'nowrap', letterSpacing: '0.08em' }}>
+            stdin:
+          </span>
+          <input
+            value={stdin}
+            onChange={e => onStdinChange(e.target.value)}
+            placeholder="Input for your program (e.g. Ana 20)…"
+            disabled={isLoading}
+            style={{
+              flex: 1,
+              background: 'transparent',
+              border: 'none',
+              outline: 'none',
+              color: '#fde68a',
+              fontSize: '11px',
+              fontFamily: 'monospace',
+              caretColor: '#fde68a',
+              opacity: isLoading ? 0.4 : 1,
+            }}
+          />
+        </div>
+      )}
 
       {/* Output — hidden when collapsed */}
       {!collapsed && (
