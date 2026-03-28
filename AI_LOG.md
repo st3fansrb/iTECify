@@ -15,6 +15,10 @@
 * [x] TASK 2.1.b — DashboardPage.tsx: project grid, create new project form, sign out
 * [x] TASK 2.3 — Sidebar: inline new file form with "+" button, guesses language from extension
 * [x] TASK 2.4 — TimeTravel.tsx: slider over useFileHistory snapshots, read-only Monaco overlay, Restore + Exit buttons
+* [x] UI — TerminalOutput: butoane Run + Clear reglate (padding 6px, font 12px, border-radius 8px, hover glow roz)
+* [x] Layout — Resize divider: drag 6px între editor și terminal (mousedown/mousemove/mouseup, min 80px, max 500px)
+* [x] Layout — Toggle Sidebar: buton ‹/› la marginea sidebar-ului, width 0↔256px cu transition 0.2s
+* [x] Layout — Toggle Terminal: buton ⌄/⌃ în header terminal, collapse la 36px (doar header)
 
 ## ❌ Erori Întâlnite și Încercări Eșuate
 *(Când primești o eroare, documentează abordarea greșită aici pentru a nu o repeta)*

@@ -130,6 +130,28 @@ function EditorPage() {
   const lastCodeRef = useRef('')
   const { user, session } = useAuth()
   const [timeTravelContent, setTimeTravelContent] = useState<string | null>(null)
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [terminalHeight, setTerminalHeight] = useState(192)
+  const [terminalCollapsed, setTerminalCollapsed] = useState(false)
+  const isDragging = useRef(false)
+  const dragStartY = useRef(0)
+  const dragStartHeight = useRef(192)
+
+  useEffect(() => {
+    const onMouseMove = (e: MouseEvent) => {
+      if (!isDragging.current) return
+      const delta = dragStartY.current - e.clientY
+      const next = Math.min(500, Math.max(80, dragStartHeight.current + delta))
+      setTerminalHeight(next)
+    }
+    const onMouseUp = () => { isDragging.current = false }
+    document.addEventListener('mousemove', onMouseMove)
+    document.addEventListener('mouseup', onMouseUp)
+    return () => {
+      document.removeEventListener('mousemove', onMouseMove)
+      document.removeEventListener('mouseup', onMouseUp)
+    }
+  }, [])
 
   // Set first file as active once loaded
   useEffect(() => {
@@ -180,14 +202,41 @@ function EditorPage() {
     <div style={BG_STYLE}>
       {ORBS}
 
+      {/* Sidebar wrapper — collapses to 0 width */}
       <div style={{
         position: 'relative', zIndex: 1,
+        width: sidebarOpen ? 256 : 0,
+        flexShrink: 0,
+        overflow: 'hidden',
+        transition: 'width 0.2s ease',
         background: 'rgba(15,12,41,0.6)',
         backdropFilter: 'blur(24px)',
-        borderRight: '1px solid rgba(236,72,153,0.2)',
       }}>
         <Sidebar files={files} activeFile={activeFileId} onSelectFile={setActiveFileId} loading={filesLoading} onCreateFile={addFile} />
       </div>
+
+      {/* Sidebar toggle button */}
+      <button
+        onClick={() => setSidebarOpen(o => !o)}
+        title={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
+        style={{
+          position: 'relative', zIndex: 2,
+          width: 14, flexShrink: 0,
+          background: 'rgba(15,12,41,0.7)',
+          border: 'none',
+          borderRight: '1px solid rgba(236,72,153,0.15)',
+          color: 'rgba(255,255,255,0.3)',
+          cursor: 'pointer',
+          fontSize: '10px',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          transition: 'color 0.2s, background 0.2s',
+          writingMode: 'vertical-rl',
+        }}
+        onMouseEnter={e => { e.currentTarget.style.color = '#f9a8d4'; e.currentTarget.style.background = 'rgba(236,72,153,0.1)' }}
+        onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.3)'; e.currentTarget.style.background = 'rgba(15,12,41,0.7)' }}
+      >
+        {sidebarOpen ? '‹' : '›'}
+      </button>
 
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', position: 'relative', zIndex: 1 }}>
         {/* Tab bar */}
@@ -244,12 +293,42 @@ function EditorPage() {
           />
         )}
 
+        {/* Resize divider */}
+        <div
+          onMouseDown={e => {
+            isDragging.current = true
+            dragStartY.current = e.clientY
+            dragStartHeight.current = terminalHeight
+            e.preventDefault()
+          }}
+          style={{
+            height: '6px',
+            flexShrink: 0,
+            background: 'rgba(236,72,153,0.3)',
+            cursor: 'row-resize',
+            transition: 'background 0.2s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(236,72,153,0.6)' }}
+          onMouseLeave={e => { if (!isDragging.current) e.currentTarget.style.background = 'rgba(236,72,153,0.3)' }}
+        />
+
         <div style={{
+          height: terminalCollapsed ? '36px' : `${terminalHeight}px`,
+          flexShrink: 0,
+          overflow: 'hidden',
+          transition: 'height 0.2s ease',
           background: 'rgba(0,0,0,0.45)',
           backdropFilter: 'blur(20px)',
           borderTop: '1px solid rgba(236,72,153,0.25)',
         }}>
-          <TerminalOutput output={output} isLoading={isLoading} onRun={handleRun} onClear={() => setOutput('')} />
+          <TerminalOutput
+            output={output}
+            isLoading={isLoading}
+            onRun={handleRun}
+            onClear={() => setOutput('')}
+            collapsed={terminalCollapsed}
+            onToggleCollapse={() => setTerminalCollapsed(c => !c)}
+          />
         </div>
       </div>
 
