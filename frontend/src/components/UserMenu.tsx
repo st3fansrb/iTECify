@@ -167,7 +167,10 @@ export default function UserMenu({ user, projectId, onSignOut }: UserMenuProps) 
                       </div>
                       <div style={{ display: 'flex', gap: '6px' }}>
                         <button
-                          onClick={() => accept(inv.id)}
+                          onClick={async () => {
+                            await accept(inv.id)
+                            window.location.href = '/editor'
+                          }}
                           style={{
                             flex: 1, padding: '4px 0', fontSize: '11px', fontWeight: 600,
                             background: 'rgba(52,211,153,0.2)', border: '1px solid rgba(52,211,153,0.4)',
