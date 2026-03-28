@@ -134,6 +134,9 @@ function EditorPage() {
   const [isBlocked, setIsBlocked] = useState(false)
   const [stdin, setStdin] = useState('')
   const [toast, setToast] = useState(false)
+  const [editorMode, setEditorMode] = useState<'shared' | 'personal'>('shared')
+  const [personalCode, setPersonalCode] = useState('')
+  const personalCodeMap = useRef<Map<string, string>>(new Map())
   const toastShownRef = useRef(false)
   const lastCodeRef = useRef('')
   const { user, session, signOut } = useAuth()
@@ -169,6 +172,27 @@ function EditorPage() {
   }, [files, activeFileId])
 
   const activeFile = files.find(f => f.id === activeFileId)
+
+  // Restore personal code for the newly selected file
+  useEffect(() => {
+    if (!activeFileId) return
+    setPersonalCode(personalCodeMap.current.get(activeFileId) ?? '')
+    if (editorMode === 'personal') {
+      lastCodeRef.current = personalCodeMap.current.get(activeFileId) ?? ''
+    }
+  }, [activeFileId])
+
+  const handlePersonalCodeChange = (code: string) => {
+    setPersonalCode(code)
+    personalCodeMap.current.set(activeFileId, code)
+    lastCodeRef.current = code
+    if (toastShownRef.current) return
+    if (code.toLowerCase().includes('itecify')) {
+      toastShownRef.current = true
+      setToast(true)
+      setTimeout(() => setToast(false), 4000)
+    }
+  }
 
   const handleCodeChange = (code: string) => {
     lastCodeRef.current = code
@@ -350,6 +374,35 @@ function EditorPage() {
               </button>
             ))}
           </div>
+          {/* Editor mode toggle */}
+          <div style={{ display: 'flex', gap: '2px', marginLeft: '8px', marginRight: '4px' }}>
+            {(['shared', 'personal'] as const).map(mode => (
+              <button
+                key={mode}
+                onClick={() => {
+                  setEditorMode(mode)
+                  if (mode === 'personal') {
+                    lastCodeRef.current = personalCodeMap.current.get(activeFileId) ?? ''
+                  }
+                }}
+                style={{
+                  padding: '3px 12px',
+                  fontSize: '11px',
+                  fontFamily: 'monospace',
+                  background: editorMode === mode ? 'rgba(236,72,153,0.2)' : 'transparent',
+                  border: 'none',
+                  borderBottom: editorMode === mode ? '2px solid #f472b6' : '2px solid transparent',
+                  color: editorMode === mode ? '#f9a8d4' : 'rgba(255,255,255,0.3)',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s',
+                  letterSpacing: '0.05em',
+                  height: '100%',
+                }}
+              >
+                {mode === 'shared' ? '👥 Shared' : '🔒 Personal'}
+              </button>
+            ))}
+          </div>
           <ConnectedUsers users={connectedUsers} currentUserId={user?.id} />
             {user && (
               <UserMenu
@@ -360,19 +413,41 @@ function EditorPage() {
             )}
         </div>
 
-        {/* Editor area — remount when file changes to reset realtime state */}
+        {/* Editor area */}
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           {activeFileId && activeFile ? (
-            <RealtimeEditor
-              key={activeFileId}
-              fileId={activeFileId}
-              projectId={projectId || undefined}
-              language={activeFile.language}
-              onCodeChange={handleCodeChange}
-              onUsersChange={setConnectedUsers}
-              timeTravelContent={timeTravelContent}
-              currentUserId={user?.id}
-            />
+            editorMode === 'shared' ? (
+              <RealtimeEditor
+                key={activeFileId}
+                fileId={activeFileId}
+                projectId={projectId || undefined}
+                language={activeFile.language}
+                onCodeChange={handleCodeChange}
+                onUsersChange={setConnectedUsers}
+                timeTravelContent={timeTravelContent}
+                currentUserId={user?.id}
+              />
+            ) : (
+              <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+                <div style={{
+                  position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10,
+                  background: 'rgba(139,92,246,0.08)',
+                  borderBottom: '1px solid rgba(139,92,246,0.2)',
+                  padding: '4px 16px',
+                  fontSize: '11px', fontFamily: 'monospace',
+                  color: 'rgba(139,92,246,0.7)',
+                  letterSpacing: '0.04em',
+                  pointerEvents: 'none',
+                }}>
+                  🔒 Personal Editor — visible only to you
+                </div>
+                <CodeEditor
+                  language={activeFile.language}
+                  value={personalCode}
+                  onChange={handlePersonalCodeChange}
+                />
+              </div>
+            )
           ) : (
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.2)', fontFamily: 'monospace', fontSize: '13px' }}>
               {filesLoading ? 'Loading project…' : 'No files found'}
