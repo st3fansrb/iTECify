@@ -71,6 +71,12 @@ type Database = {
         Update: { id?: string; project_id?: string; user_id?: string; role?: string; joined_at?: string }
         Relationships: never[]
       }
+      invitations: {
+        Row: { id: string; project_id: string; invited_email: string; invited_by: string; status: string; created_at: string }
+        Insert: { id?: string; project_id: string; invited_email: string; invited_by: string; status?: string; created_at?: string }
+        Update: { id?: string; project_id?: string; invited_email?: string; invited_by?: string; status?: string; created_at?: string }
+        Relationships: never[]
+      }
     }
     Views: { [_ in never]: never }
     Functions: { [_ in never]: never }

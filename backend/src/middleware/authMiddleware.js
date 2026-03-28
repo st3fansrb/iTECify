@@ -17,14 +17,19 @@ async function requireAuth(req, res, next) {
     return res.status(401).json({ error: 'Missing Authorization header' });
   }
 
-  const { data, error } = await supabase.auth.getUser(token);
+  try {
+    const { data, error } = await supabase.auth.getUser(token);
 
-  if (error || !data?.user) {
-    return res.status(401).json({ error: 'Invalid or expired token' });
+    if (error || !data?.user) {
+      return res.status(401).json({ error: error?.message || 'Invalid or expired token' });
+    }
+
+    req.user = data.user;
+    next();
+  } catch (err) {
+    console.error('[authMiddleware] Unexpected error:', err);
+    return res.status(500).json({ error: 'Auth service error: ' + (err.message || 'unknown') });
   }
-
-  req.user = data.user;
-  next();
 }
 
 module.exports = { requireAuth };

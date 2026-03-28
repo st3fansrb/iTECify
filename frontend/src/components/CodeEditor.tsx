@@ -1,5 +1,5 @@
 import Editor, { type OnMount } from '@monaco-editor/react'
-import type * as monaco from 'monaco-editor'
+import type * as monacoType from 'monaco-editor'
 import { useRef, useEffect } from 'react'
 import type { ConnectedUser, CursorPosition } from '../hooks/useRealtimeEditor'
 
@@ -7,25 +7,35 @@ interface CodeEditorProps {
   language: string
   value: string
   onChange: (value: string) => void
-  onEditorMount?: (editor: monaco.editor.IStandaloneCodeEditor) => void
+  onEditorMount?: (editor: monacoType.editor.IStandaloneCodeEditor) => void
   connectedUsers?: ConnectedUser[]
   remoteCursors?: ConnectedUser[]
   activeFileId?: string
   onCursorChange?: (cursor: CursorPosition | null) => void
   readOnly?: boolean
+  currentUserId?: string | null
 }
 
-const CURSOR_COLORS = ['#f472b6', '#818cf8', '#34d399', '#fb923c', '#38bdf8']
+const FALLBACK_COLORS = ['#f472b6', '#818cf8', '#34d399', '#fb923c', '#38bdf8']
+
+function hexToRgba(hex: string, alpha: number): string {
+  const clean = hex.replace('#', '')
+  const r = parseInt(clean.slice(0, 2), 16)
+  const g = parseInt(clean.slice(2, 4), 16)
+  const b = parseInt(clean.slice(4, 6), 16)
+  if (isNaN(r) || isNaN(g) || isNaN(b)) return `rgba(244,114,182,${alpha})`
+  return `rgba(${r},${g},${b},${alpha})`
+}
 
 export default function CodeEditor({
   language, value, onChange, onEditorMount,
-  connectedUsers = [], remoteCursors = [], activeFileId,
-  onCursorChange, readOnly = false,
+  connectedUsers = [], onCursorChange, readOnly = false, currentUserId,
 }: CodeEditorProps) {
-  const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null)
-  const monacoRef = useRef<typeof monaco | null>(null)
-  const oldDecorationsRef = useRef<string[]>([])
-  const oldWidgetsRef = useRef<monaco.editor.IContentWidget[]>([])
+  const editorRef = useRef<monacoType.editor.IStandaloneCodeEditor | null>(null)
+  const monacoRef = useRef<typeof monacoType | null>(null)
+  const decorationIdsRef = useRef<string[]>([])
+  const widgetListRef = useRef<monacoType.editor.IContentWidget[]>([])
+  const styleTagRef = useRef<HTMLStyleElement | null>(null)
 
   const handleMount: OnMount = (editor, monacoInstance) => {
     editorRef.current = editor
@@ -54,117 +64,107 @@ export default function CodeEditor({
     onEditorMount?.(editor)
   }
 
-  // ── Remote cursor decorations + ContentWidgets ──────────────────────────────
+  // ── Remote cursor decorations + ContentWidgets ────────────────────────────────
   useEffect(() => {
     const editor = editorRef.current
-    const monacoInstance = monacoRef.current
-    if (!editor || !monacoInstance) return
-
-    console.log('remoteCursors:', remoteCursors)
-
-    // Filter to cursors in the currently active file with a known position
-    const cursors = remoteCursors.filter(
-      u => u.activeFileId === activeFileId && u.cursor !== null
-    )
-
-    // Inject per-user CSS for caret color + line highlight
-    const styleId = 'rc-style'
-    document.getElementById(styleId)?.remove()
-    if (cursors.length > 0) {
-      const style = document.createElement('style')
-      style.id = styleId
-      style.textContent = cursors.map((u, i) => {
-        const color = u.avatarColor ?? CURSOR_COLORS[i % CURSOR_COLORS.length]
-        const cls = u.userId.replace(/[^a-z0-9]/gi, '')
-        return `
-          .rc-caret-${cls}::after {
-            content: '';
-            display: inline-block;
-            width: 2px;
-            height: 1.2em;
-            background: ${color};
-            margin-left: -1px;
-            vertical-align: text-bottom;
-          }
-          .rc-line-${cls} { background: ${color}18 !important; }
-        `
-      }).join('\n')
-      document.head.appendChild(style)
-    }
+    const monaco = monacoRef.current
+    if (!editor || !monaco) return
 
     // Remove old widgets
-    for (const w of oldWidgetsRef.current) {
-      editor.removeContentWidget(w)
+    widgetListRef.current.forEach(w => {
+      try { editor.removeContentWidget(w) } catch (_) {}
+    })
+    widgetListRef.current = []
+
+    // Remote users with a known cursor, excluding self
+    const remote = connectedUsers.filter(
+      u => u.cursor !== null && u.userId !== currentUserId
+    )
+    console.log('remoteCursors:', remote)
+
+    // Build CSS for line backgrounds and inject into <head>
+    const css = remote.map((u, i) => {
+      const color = u.avatarColor ?? FALLBACK_COLORS[i % FALLBACK_COLORS.length]
+      const safeId = u.userId.replace(/[^a-zA-Z0-9]/g, '')
+      return `.rcursor-${safeId} { background-color: ${hexToRgba(color, 0.18)} !important; border-left: 3px solid ${color} !important; }`
+    }).join('\n')
+
+    if (!styleTagRef.current) {
+      styleTagRef.current = document.createElement('style')
+      styleTagRef.current.id = 'itecify-remote-cursors'
+      document.head.appendChild(styleTagRef.current)
     }
-    oldWidgetsRef.current = []
+    styleTagRef.current.textContent = css
 
-    // Remove old decorations
-    oldDecorationsRef.current = editor.deltaDecorations(oldDecorationsRef.current, [])
-
-    if (cursors.length === 0) return
-
-    // Add decorations (line highlight + caret marker)
-    const newDecorations = cursors.map(u => {
-      const { lineNumber, column } = u.cursor!
-      const cls = u.userId.replace(/[^a-z0-9]/gi, '')
+    // Apply line decorations
+    const decorations: monacoType.editor.IModelDeltaDecoration[] = remote.map((u, i) => {
+      const color = u.avatarColor ?? FALLBACK_COLORS[i % FALLBACK_COLORS.length]
+      const safeId = u.userId.replace(/[^a-zA-Z0-9]/g, '')
+      const lineNumber = u.cursor!.lineNumber
       return {
-        range: new monacoInstance.Range(lineNumber, column, lineNumber, column),
+        range: new monaco.Range(lineNumber, 1, lineNumber, 1),
         options: {
-          afterContentClassName: `rc-caret-${cls}`,
-          lineHighlightClassName: `rc-line-${cls}`,
-          isWholeLine: false,
-          stickiness: monacoInstance.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
+          isWholeLine: true,
+          className: `rcursor-${safeId}`,
+          overviewRulerColor: color,
+          overviewRulerLane: monaco.editor.OverviewRulerLane.Right,
         },
       }
     })
-    oldDecorationsRef.current = editor.deltaDecorations([], newDecorations)
+    decorationIdsRef.current = editor.deltaDecorations(decorationIdsRef.current, decorations)
 
-    // Add ContentWidgets — name label above cursor
-    const newWidgets: monaco.editor.IContentWidget[] = cursors.map((u, i) => {
-      const { lineNumber, column } = u.cursor!
-      const color = u.avatarColor ?? CURSOR_COLORS[i % CURSOR_COLORS.length]
+    // Add username label widgets above each cursor line
+    remote.forEach((u, i) => {
+      const color = u.avatarColor ?? FALLBACK_COLORS[i % FALLBACK_COLORS.length]
       const label = u.displayName ?? u.userId.slice(0, 6)
+      const { lineNumber, column } = u.cursor!
 
-      const node = document.createElement('div')
-      node.textContent = label
-      node.style.cssText = [
+      const dom = document.createElement('div')
+      dom.style.cssText = [
         `background:${color}`,
         'color:#0f0c29',
-        'font-size:11px',
-        'padding:1px 6px',
-        'border-radius:3px',
-        'font-family:monospace',
+        'font-size:10px',
         'font-weight:700',
-        'white-space:nowrap',
+        'font-family:JetBrains Mono,Fira Code,monospace',
+        'padding:1px 7px',
+        'border-radius:3px',
         'pointer-events:none',
-        'z-index:100',
-        'line-height:1.4',
+        'white-space:nowrap',
+        'user-select:none',
+        'line-height:16px',
+        'opacity:0.92',
+        'margin-bottom:1px',
+        'display:inline-block',
       ].join(';')
+      dom.textContent = label
 
-      const widget: monaco.editor.IContentWidget = {
-        getId: () => `remote-cursor-${u.userId}`,
-        getDomNode: () => node,
+      const widget: monacoType.editor.IContentWidget = {
+        getId: () => `rcursor-widget-${u.userId}`,
+        getDomNode: () => dom,
         getPosition: () => ({
           position: { lineNumber, column },
-          preference: [monacoInstance.editor.ContentWidgetPositionPreference.ABOVE],
+          preference: [
+            monaco.editor.ContentWidgetPositionPreference.ABOVE,
+            monaco.editor.ContentWidgetPositionPreference.BELOW,
+          ],
         }),
       }
-      editor.addContentWidget(widget)
-      return widget
-    })
-    oldWidgetsRef.current = newWidgets
-  }, [remoteCursors, activeFileId])
 
-  // Cleanup decorations + widgets on unmount
+      editor.addContentWidget(widget)
+      widgetListRef.current.push(widget)
+    })
+  }, [connectedUsers, currentUserId])
+
+  // Clean up style tag + widgets + decorations on unmount
   useEffect(() => {
     return () => {
       const editor = editorRef.current
-      if (!editor) return
-      for (const w of oldWidgetsRef.current) {
-        editor.removeContentWidget(w)
+      if (editor) {
+        widgetListRef.current.forEach(w => { try { editor.removeContentWidget(w) } catch (_) {} })
+        editor.deltaDecorations(decorationIdsRef.current, [])
       }
-      editor.deltaDecorations(oldDecorationsRef.current, [])
-      document.getElementById('rc-style')?.remove()
+      styleTagRef.current?.remove()
+      styleTagRef.current = null
     }
   }, [])
 
@@ -183,36 +183,14 @@ export default function CodeEditor({
           scrollBeyondLastLine: false,
           wordWrap: 'on',
           automaticLayout: true,
-          tabSize: 2,
+          tabSize: 4,
+          detectIndentation: false,
+          autoIndent: 'keep',
           fontFamily: 'JetBrains Mono, Fira Code, monospace',
           padding: { top: 16 },
           readOnly,
         }}
       />
-
-      {/* Sidebar badges — show which line each remote user is on */}
-      {connectedUsers.filter(u => u.cursor !== null).map((u, i) => (
-        <div
-          key={u.userId}
-          style={{
-            position: 'absolute',
-            right: '8px',
-            top: `${56 + (i * 22)}px`,
-            background: CURSOR_COLORS[i % CURSOR_COLORS.length],
-            color: '#0f0c29',
-            fontSize: '10px',
-            fontWeight: 700,
-            padding: '2px 7px',
-            borderRadius: '10px',
-            fontFamily: 'monospace',
-            pointerEvents: 'none',
-            zIndex: 10,
-            opacity: 0.88,
-          }}
-        >
-          L{u.cursor!.lineNumber} · {u.displayName ?? u.userId.slice(0, 6)}
-        </div>
-      ))}
     </div>
   )
 }

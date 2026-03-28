@@ -45,7 +45,7 @@ export default function AIBlock({ currentCode, language }: AIBlockProps) {
     scrollToBottom()
 
     try {
-      const res = await fetch('http://localhost:3001/api/ai/generate', {
+      const res = await fetch('/api/ai/generate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

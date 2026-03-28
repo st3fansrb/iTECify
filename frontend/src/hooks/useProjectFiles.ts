@@ -42,7 +42,7 @@ export function useProjectFiles(): UseProjectFilesReturn {
   const [files, setFiles] = useState<ProjectFile[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [projectId, setProjectId] = useState<string>('')
+  const [projectId, setProjectId] = useState('')
   const projectIdRef = useRef<string>('')
 
   useEffect(() => {

@@ -7,19 +7,39 @@ const { spawn } = require('child_process');
 const TEMP_DIR = path.join(__dirname, '../../temp');
 const TIMEOUT_MS = 10000;
 
-// Docker runners (used when Docker is available)
+// Docker runners — stdin piped via /sandbox/stdin.txt
 const DOCKER_RUNNERS = {
-  javascript: { image: 'node:18-alpine',    file: 'code.js', cmd: ['node',   '/sandbox/code.js'] },
-  python:     { image: 'python:3.9-slim',   file: 'code.py', cmd: ['python', '/sandbox/code.py'] },
-  rust:       { image: 'rust:alpine',       file: 'code.rs', cmd: ['sh', '-c', 'rustc /sandbox/code.rs -o /tmp/out 2>&1 && /tmp/out'] },
-  go:         { image: 'golang:alpine',     file: 'code.go', cmd: ['go', 'run', '/sandbox/code.go'] },
-  java:       { image: 'openjdk:17-alpine', file: 'Main.java', cmd: ['sh', '-c', 'javac /sandbox/Main.java -d /tmp && java -cp /tmp Main'] },
+  javascript: {
+    image: 'node:18-alpine',
+    file: 'code.js',
+    cmd: ['sh', '-c', 'cat /sandbox/stdin.txt | node /sandbox/code.js'],
+  },
+  python: {
+    image: 'python:3.9-slim',
+    file: 'code.py',
+    cmd: ['sh', '-c', 'cat /sandbox/stdin.txt | python /sandbox/code.py'],
+  },
+  rust: {
+    image: 'rust:alpine',
+    file: 'code.rs',
+    cmd: ['sh', '-c', 'rustc /sandbox/code.rs -o /tmp/out 2>&1 && cat /sandbox/stdin.txt | /tmp/out'],
+  },
+  go: {
+    image: 'golang:alpine',
+    file: 'code.go',
+    cmd: ['sh', '-c', 'cat /sandbox/stdin.txt | go run /sandbox/code.go'],
+  },
+  java: {
+    image: 'openjdk:17-alpine',
+    file: 'Main.java',
+    cmd: ['sh', '-c', 'javac /sandbox/Main.java -d /tmp && cat /sandbox/stdin.txt | java -cp /tmp Main'],
+  },
 };
 
 // Fallback runners (child_process, no Docker needed)
 const FALLBACK_RUNNERS = {
-  javascript: { cmd: 'node',    args: (f) => [f], ext: 'js'  },
-  python:     { cmd: 'python',  args: (f) => [f], ext: 'py'  },
+  javascript: { cmd: 'node',   args: (f) => [f], ext: 'js' },
+  python:     { cmd: 'python', args: (f) => [f], ext: 'py' },
 };
 
 async function isDockerAvailable() {
@@ -33,7 +53,7 @@ async function isDockerAvailable() {
   }
 }
 
-async function executeWithDocker(language, code) {
+async function executeWithDocker(language, code, stdin = '') {
   const { PassThrough } = require('stream');
   const Docker = require('dockerode');
   const docker = new Docker();
@@ -46,13 +66,15 @@ async function executeWithDocker(language, code) {
   try {
     fs.mkdirSync(execDir, { recursive: true });
     fs.writeFileSync(path.join(execDir, runner.file), code, 'utf8');
+    // Write stdin to file (empty string if no input provided)
+    fs.writeFileSync(path.join(execDir, 'stdin.txt'), stdin, 'utf8');
 
     container = await docker.createContainer({
       Image: runner.image,
       Cmd: runner.cmd,
       HostConfig: {
         Binds: [`${execDir}:/sandbox:ro`],
-        Tmpfs: { '/tmp': 'size=64m,exec' },  // Rust/Java compilează în /tmp
+        Tmpfs: { '/tmp': 'size=64m,exec' },
         NetworkMode: 'none',
         Memory: 50 * 1024 * 1024,
         MemorySwap: 50 * 1024 * 1024,
@@ -73,7 +95,7 @@ async function executeWithDocker(language, code) {
     stderrPass.on('data', chunk => { stderrData += chunk.toString('utf8'); });
     stdoutPass.on('error', err => { console.error('[docker] stdout error:', err.message); });
     stderrPass.on('error', err => { console.error('[docker] stderr error:', err.message); });
-    logStream.on('error', err => { console.error('[docker] log stream error:', err.message); });
+    logStream.on('error',  err => { console.error('[docker] log stream error:', err.message); });
 
     await container.start();
 
@@ -98,7 +120,7 @@ async function executeWithDocker(language, code) {
   }
 }
 
-async function executeWithFallback(language, code) {
+async function executeWithFallback(language, code, stdin = '') {
   const runner = FALLBACK_RUNNERS[language];
   if (!runner) {
     return {
@@ -116,7 +138,9 @@ async function executeWithFallback(language, code) {
     let stderrData = '';
     let finished = false;
 
-    const proc = spawn(runner.cmd, runner.args(tmpFile), { timeout: 5000 });
+    const proc = spawn(runner.cmd, runner.args(tmpFile), {
+      env: { ...process.env, PYTHONUTF8: '1', PYTHONIOENCODING: 'utf-8' },
+    });
 
     const finish = (error = null) => {
       if (finished) return;
@@ -130,6 +154,12 @@ async function executeWithFallback(language, code) {
     proc.on('close', () => finish());
     proc.on('error', err => finish(err.message));
 
+    // Write stdin and close it (guard against null stdin on spawn failure)
+    if (proc.stdin) {
+      if (stdin) proc.stdin.write(stdin);
+      proc.stdin.end();
+    }
+
     setTimeout(() => {
       proc.kill('SIGKILL');
       finish('Execution timed out (>5s)');
@@ -137,7 +167,7 @@ async function executeWithFallback(language, code) {
   });
 }
 
-async function executeCode(language, code) {
+async function executeCode(language, code, stdin = '') {
   if (!DOCKER_RUNNERS[language] && !FALLBACK_RUNNERS[language]) {
     return { stdout: '', stderr: '', error: `Unsupported language: ${language}` };
   }
@@ -145,10 +175,10 @@ async function executeCode(language, code) {
   const dockerOk = await isDockerAvailable();
 
   if (dockerOk && DOCKER_RUNNERS[language]) {
-    return executeWithDocker(language, code);
+    return executeWithDocker(language, code, stdin);
   }
 
-  return executeWithFallback(language, code);
+  return executeWithFallback(language, code, stdin);
 }
 
 module.exports = { executeCode };

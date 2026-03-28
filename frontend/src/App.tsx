@@ -10,8 +10,10 @@ import KonamiExplosion from './components/KonamiExplosion'
 import { useKonamiCode } from './hooks/useKonamiCode'
 import { useAuth } from './hooks/useAuth'
 import { useProjectFiles } from './hooks/useProjectFiles'
-import { useRealtimeEditor } from './hooks/useRealtimeEditor'
+import { useRealtimeEditor, type ConnectedUser } from './hooks/useRealtimeEditor'
+import { useSharedTerminal } from './hooks/useSharedTerminal'
 import ConnectedUsers from './components/ConnectedUsers'
+import UserMenu from './components/UserMenu'
 import AIBlock from './components/AIBlock'
 import DashboardPage from './pages/DashboardPage'
 import TimeTravel from './components/TimeTravel'
@@ -54,13 +56,11 @@ const ORBS = (
   </>
 )
 
-import type { ConnectedUser } from './hooks/useRealtimeEditor'
-
 // ── Inner component that holds realtime state for the active file ──────────────
 function RealtimeEditor({
-  projectId, fileId, language, onCodeChange, onUsersChange, timeTravelContent,
-}: { projectId: string; fileId: string; language: string; onCodeChange: (code: string) => void; onUsersChange: (users: ConnectedUser[]) => void; timeTravelContent: string | null }) {
-  const { code, updateCode, updateCursor, loading, isSaving, connectedUsers, remoteCursors } = useRealtimeEditor({
+  fileId, projectId, language, onCodeChange, onUsersChange, timeTravelContent, currentUserId,
+}: { fileId: string; projectId?: string; language: string; onCodeChange: (code: string) => void; onUsersChange: (users: ConnectedUser[]) => void; timeTravelContent: string | null; currentUserId?: string | null }) {
+  const { code, updateCode, updateCursor, loading, isSaving, connectedUsers } = useRealtimeEditor({
     projectId,
     fileId,
     initialContent: '',
@@ -113,10 +113,9 @@ function RealtimeEditor({
         value={isTimeTraveling ? timeTravelContent! : code}
         onChange={handleChange}
         connectedUsers={isTimeTraveling ? [] : connectedUsers}
-        remoteCursors={isTimeTraveling ? [] : remoteCursors}
-        activeFileId={fileId}
         onCursorChange={isTimeTraveling ? undefined : updateCursor}
         readOnly={isTimeTraveling}
+        currentUserId={currentUserId}
       />
     </div>
   )
@@ -124,14 +123,19 @@ function RealtimeEditor({
 
 function EditorPage() {
   const { files, loading: filesLoading, addFile, projectId } = useProjectFiles()
+  const { outputs, broadcast, clearOutputs } = useSharedTerminal(projectId)
+
+
   const [activeFileId, setActiveFileId] = useState<string>('')
   const [connectedUsers, setConnectedUsers] = useState<ConnectedUser[]>([])
   const [output, setOutput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [isBlocked, setIsBlocked] = useState(false)
+  const [stdin, setStdin] = useState('')
   const [toast, setToast] = useState(false)
   const toastShownRef = useRef(false)
   const lastCodeRef = useRef('')
-  const { user, session } = useAuth()
+  const { user, session, signOut } = useAuth()
   const [timeTravelContent, setTimeTravelContent] = useState<string | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [terminalHeight, setTerminalHeight] = useState(192)
@@ -175,24 +179,42 @@ function EditorPage() {
     }
   }
 
-  const handleRun = async () => {
+  const handleRun = async (force = false) => {
     if (!activeFile) return
+    if (!session?.access_token) {
+      setOutput('ERROR: Not logged in. Please sign in to run code.')
+      return
+    }
     setIsLoading(true)
+    setIsBlocked(false)
     setOutput('')
+    clearOutputs()
+
+    const displayName = user?.email?.split('@')[0] ?? 'user'
+    const userId = user?.id ?? 'unknown'
+
+    broadcast({ userId, displayName, avatarColor: '#f472b6', type: 'command', content: `${activeFile.language}: ${activeFile.name}`, timestamp: new Date().toISOString() })
 
     try {
-      const res = await fetch('http://localhost:3001/api/execute/stream', {
+      const res = await fetch('/api/execute/stream', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session?.access_token}`,
         },
-        body: JSON.stringify({ language: activeFile.language, code: lastCodeRef.current }),
+        body: JSON.stringify({ language: activeFile.language, code: lastCodeRef.current, stdin, force }),
       })
 
       if (!res.ok || !res.body) {
-        const err = await res.json().catch(() => ({ error: 'Unknown error' }))
-        setOutput(`ERROR: ${err.error}`)
+        const text = await res.text().catch(() => '')
+        let errMsg = `HTTP ${res.status}`
+        try {
+          const json = JSON.parse(text)
+          errMsg = json.error || errMsg
+        } catch {
+          errMsg = text || errMsg
+        }
+        setOutput(`ERROR: ${errMsg}`)
         return
       }
 
@@ -215,17 +237,23 @@ function EditorPage() {
 
             if (event.type === 'stdout') {
               setOutput(prev => prev + event.content)
+              broadcast({ userId, displayName, avatarColor: '#f472b6', type: 'stdout', content: event.content, timestamp: new Date().toISOString() })
             } else if (event.type === 'stderr') {
               setOutput(prev => prev + event.content)
+              broadcast({ userId, displayName, avatarColor: '#f472b6', type: 'stderr', content: event.content, timestamp: new Date().toISOString() })
             } else if (event.type === 'scan') {
               const warnings = event.warnings.map((w: { severity: string; message: string }) =>
                 `⚠ [${w.severity.toUpperCase()}] ${w.message}`
               ).join('\n')
               setOutput(prev => prev + warnings + '\n')
             } else if (event.type === 'blocked') {
+              setIsBlocked(true)
               setOutput(prev => prev + `\n🛑 ${event.message}\n`)
             } else if (event.type === 'error') {
               setOutput(prev => prev + `ERROR: ${event.content}\n`)
+              broadcast({ userId, displayName, avatarColor: '#f472b6', type: 'stderr', content: `ERROR: ${event.content}\n`, timestamp: new Date().toISOString() })
+            } else if (event.type === 'exit') {
+              broadcast({ userId, displayName, avatarColor: '#f472b6', type: 'exit', content: String(event.code ?? 0), timestamp: new Date().toISOString() })
             }
           } catch {
             // skip malformed SSE line
@@ -237,12 +265,21 @@ function EditorPage() {
         setOutput('(no output)')
       }
 
-    } catch {
-      setOutput('ERROR: Could not reach backend (http://localhost:3001)')
+    } catch (err) {
+      console.error('[handleRun] error:', err)
+      setOutput('ERROR: ' + (err instanceof Error ? err.message : String(err)))
     } finally {
       setIsLoading(false)
     }
   }
+
+  const remoteOutput = outputs.length > 0
+    ? outputs.map(e => {
+        if (e.type === 'command') return `▶ [${e.displayName}] ${e.content}\n`
+        if (e.type === 'exit') return `[${e.displayName}] exited (${e.content})\n`
+        return e.content
+      }).join('')
+    : ''
 
   return (
     <div style={BG_STYLE}>
@@ -308,6 +345,13 @@ function EditorPage() {
             ))}
           </div>
           <ConnectedUsers users={connectedUsers} currentUserId={user?.id} />
+            {user && (
+              <UserMenu
+                user={user}
+                projectId={projectId}
+                onSignOut={signOut}
+              />
+            )}
         </div>
 
         {/* Editor area — remount when file changes to reset realtime state */}
@@ -315,12 +359,13 @@ function EditorPage() {
           {activeFileId && activeFile ? (
             <RealtimeEditor
               key={activeFileId}
-              projectId={projectId}
+              projectId={projectId || undefined}
               fileId={activeFileId}
               language={activeFile.language}
               onCodeChange={handleCodeChange}
               onUsersChange={setConnectedUsers}
               timeTravelContent={timeTravelContent}
+              currentUserId={user?.id}
             />
           ) : (
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.2)', fontFamily: 'monospace', fontSize: '13px' }}>
@@ -369,12 +414,16 @@ function EditorPage() {
           borderTop: '1px solid rgba(236,72,153,0.25)',
         }}>
           <TerminalOutput
-            output={output}
+            output={output || remoteOutput}
             isLoading={isLoading}
-            onRun={handleRun}
-            onClear={() => setOutput('')}
+            onRun={() => handleRun(false)}
+            onClear={() => { setOutput(''); setIsBlocked(false); clearOutputs() }}
             collapsed={terminalCollapsed}
             onToggleCollapse={() => setTerminalCollapsed(c => !c)}
+            isBlocked={isBlocked}
+            onForceRun={() => handleRun(true)}
+            stdin={stdin}
+            onStdinChange={setStdin}
           />
         </div>
       </div>

@@ -50,7 +50,7 @@ app.get('/health', (req, res) => {
 // Original execute endpoint (non-streaming, kept as fallback)
 // Rate limiter applied BEFORE auth
 app.post('/api/execute', executeLimiter, requireAuth, async (req, res) => {
-  const { language, code } = req.body;
+  const { language, code, stdin = '', force } = req.body;
 
   if (!language || !code) {
     return res.status(400).json({ error: 'Missing required fields: language, code' });
@@ -61,7 +61,7 @@ app.post('/api/execute', executeLimiter, requireAuth, async (req, res) => {
   const hasHighSeverity = scan.warnings.some(w => w.severity === 'high');
 
   // Block if high-severity warnings and no explicit force flag
-  if (hasHighSeverity && !req.body.force) {
+  if (hasHighSeverity && !force) {
     return res.status(200).json({
       stdout: '',
       stderr: '',
@@ -71,7 +71,7 @@ app.post('/api/execute', executeLimiter, requireAuth, async (req, res) => {
     });
   }
 
-  const result = await executeCode(language, code);
+  const result = await executeCode(language, code, stdin);
   res.json({ ...result, scanWarnings: scan.warnings });
 });
 
@@ -90,9 +90,9 @@ async function isDockerAvailable() {
 }
 
 const FALLBACK_RUNNERS = {
-  javascript: { cmd: 'node',    ext: 'js'  },
-  python:     { cmd: 'python3', ext: 'py'  },
-  rust:       { cmd: null,      ext: 'rs'  }, // rust needs compile step, skip in fallback
+  javascript: { cmd: 'node',   ext: 'js' },
+  python:     { cmd: 'python', ext: 'py' },
+  rust:       { cmd: null,     ext: 'rs' }, // rust needs compile step, skip in fallback
 };
 
 const DOCKER_RUNNERS = {
@@ -106,7 +106,7 @@ const DOCKER_RUNNERS = {
 const TEMP_DIR = path.join(__dirname, '../../temp');
 
 app.post('/api/execute/stream', executeLimiter, requireAuth, async (req, res) => {
-  const { language, code, force } = req.body;
+  const { language, code, stdin = '', force } = req.body;
 
   if (!language || !code) {
     return res.status(400).json({ error: 'Missing required fields: language, code' });
@@ -161,6 +161,7 @@ app.post('/api/execute/stream', executeLimiter, requireAuth, async (req, res) =>
       const execDir = path.join(TEMP_DIR, randomUUID());
       fs.mkdirSync(execDir, { recursive: true });
       fs.writeFileSync(path.join(execDir, runner.file), code, 'utf8');
+      fs.writeFileSync(path.join(execDir, 'stdin.txt'), stdin, 'utf8');
       cleanupFns.push(() => fs.rmSync(execDir, { recursive: true, force: true }));
 
       const container = await docker.createContainer({
@@ -220,7 +221,15 @@ app.post('/api/execute/stream', executeLimiter, requireAuth, async (req, res) =>
       fs.writeFileSync(tmpFile, code, 'utf8');
       cleanupFns.push(() => { try { fs.unlinkSync(tmpFile); } catch (_) {} });
 
-      const proc = spawn(runner.cmd, [tmpFile]);
+      const proc = spawn(runner.cmd, [tmpFile], {
+        env: { ...process.env, PYTHONUTF8: '1', PYTHONIOENCODING: 'utf-8' },
+      });
+
+      // Write stdin and close it (guard against null stdin on spawn failure)
+      if (proc.stdin) {
+        if (stdin) proc.stdin.write(stdin);
+        proc.stdin.end();
+      }
 
       const timeoutHandle = setTimeout(() => {
         sendEvent({ type: 'error', content: 'Execution timed out (5s limit)' });
@@ -260,6 +269,54 @@ app.post('/api/execute/stream', executeLimiter, requireAuth, async (req, res) =>
 // ─── AI Route ─────────────────────────────────────────────────────────────────
 
 app.use('/api/ai', aiLimiter, aiRoute);
+
+// ─── Invite Route ──────────────────────────────────────────────────────────────
+
+const inviteLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  message: { error: 'Too many invite requests. Please wait.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.post('/api/invite', inviteLimiter, requireAuth, async (req, res) => {
+  const { email, projectId } = req.body;
+
+  if (!email || !projectId) {
+    return res.status(400).json({ error: 'Missing required fields: email, projectId' });
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({ error: 'Invalid email address' });
+  }
+
+  try {
+    const { createClient } = require('@supabase/supabase-js');
+    const adminClient = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_KEY,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    );
+
+    const { error } = await adminClient.auth.admin.inviteUserByEmail(email, {
+      redirectTo: `${process.env.CLIENT_URL || 'http://localhost:5173'}/editor`,
+    });
+
+    if (error) {
+      // User already exists — invitation still created in DB, no magic link needed
+      if (error.message?.includes('already been registered')) {
+        return res.json({ success: true, alreadyRegistered: true });
+      }
+      return res.status(500).json({ error: error.message });
+    }
+
+    return res.json({ success: true, alreadyRegistered: false });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
 
 // ─── Start ─────────────────────────────────────────────────────────────────────
 
