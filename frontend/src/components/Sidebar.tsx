@@ -101,7 +101,7 @@ function FileBadge({ filename }: { filename: string }) {
 
 const FALLBACK_COLORS = ['#f472b6', '#818cf8', '#34d399', '#fb923c', '#38bdf8']
 
-// ── FileRow — manages its own hover state for transform + gradient ────────────
+// ── FileRow — manages its own hover state ─────────────────────────────────────
 function FileRow({
   file, isActive, fileStyle, onSelect,
 }: {
@@ -112,11 +112,15 @@ function FileRow({
 }) {
   const [hovered, setHovered] = useState(false)
 
+  // Hex color → rgba string for inset glow
+  const glowColor = fileStyle.borderColor
+
   return (
     <li
       onClick={onSelect}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      className={isActive ? 'sidebar-file-active' : ''}
       style={{
         display: 'flex', alignItems: 'center', gap: '6px',
         margin: '4px 8px',
@@ -130,17 +134,39 @@ function FileRow({
             ? fileStyle.gradient
             : 'transparent',
         color: isActive ? '#ffffff' : hovered ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.6)',
-        borderLeft: `${isActive ? '3px' : '2px'} solid ${isActive || hovered ? fileStyle.borderColor : 'transparent'}`,
+        borderLeft: `${isActive ? '3px' : '2px'} solid ${isActive || hovered ? glowColor : 'transparent'}`,
         transform: hovered && !isActive ? 'translateX(4px)' : 'translateX(0)',
-        boxShadow: isActive ? `0 0 12px ${fileStyle.borderColor}22` : 'none',
-        transition: 'background 0.18s, color 0.18s, border-color 0.18s, transform 0.18s, box-shadow 0.18s',
-      }}
+        boxShadow: isActive
+          ? `inset 0 0 20px ${glowColor}1a, 0 0 10px ${glowColor}18`
+          : hovered
+            ? `inset 0 0 20px ${glowColor}12`
+            : 'none',
+        // Transition all props — includ border-color pentru badge-glow smoothness
+        transition: 'background 0.3s ease, color 0.3s ease, border-color 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease',
+        // CSS animation pentru puls pe activ — via className + keyframes în <style>
+        animationName: isActive ? 'sidebar-pulse' : 'none',
+        animationDuration: '2.4s',
+        animationTimingFunction: 'ease-in-out',
+        animationIterationCount: 'infinite',
+      } as React.CSSProperties}
     >
       <FileBadge filename={file.name} />
       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
         {file.name}
       </span>
     </li>
+  )
+}
+
+// Keyframes injected once globally — used by FileRow active pulse
+function SidebarStyles() {
+  return (
+    <style>{`
+      @keyframes sidebar-pulse {
+        0%, 100% { border-left-width: 3px; opacity: 1; }
+        50%       { border-left-width: 5px; opacity: 0.88; }
+      }
+    `}</style>
   )
 }
 
@@ -349,18 +375,22 @@ export default function Sidebar({ files, activeFile, onSelectFile, loading, onCr
           <div>
             {/* Project root */}
             <div style={{
-              display: 'flex', alignItems: 'center', gap: '4px',
-              padding: '4px 12px',
-              fontSize: '12px', fontWeight: 600,
-              color: 'rgba(255,255,255,0.6)',
-              fontFamily: 'monospace',
+              padding: '10px 14px 10px',
               userSelect: 'none',
+              borderBottom: '1px solid rgba(255,255,255,0.07)',
+              marginBottom: '4px',
             }}>
-              <span style={{ fontSize: '11px', opacity: 0.6 }}>&#9662;</span>
-              <span>&#128193;</span>
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {projectName ?? 'iTECify Demo'}
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '14px' }}>&#128193;</span>
+                <span style={{
+                  fontSize: '16px', fontWeight: 700,
+                  color: '#ffffff',
+                  letterSpacing: '0.05em',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>
+                  {projectName ?? 'iTECify Demo'}
+                </span>
+              </div>
             </div>
 
             {/* Files list */}
@@ -455,6 +485,8 @@ export default function Sidebar({ files, activeFile, onSelectFile, loading, onCr
       <div className="px-4 py-2 border-t border-slate-700 text-slate-500 text-xs">
         iTEC 2026 Hackathon
       </div>
+
+      <SidebarStyles />
     </div>
   )
 }

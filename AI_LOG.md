@@ -108,6 +108,12 @@
   - creat `hooks/usePersonalTerminal.ts` — state local pur, fără Supabase, expune personalOutputs/addPersonalEntry/clearPersonalOutputs
   - `TerminalOutput.tsx`: adăugat tabs Shared/My Terminal în header; personal tab afișează TerminalEntry[] cu culori per tip; Clear șterge tab-ul activ
   - `App.tsx`: integrat usePersonalTerminal, addPersonalEntry apelat la fiecare event SSE (command/stdout/stderr/error/exit), props noi pasate la TerminalOutput
+* [x] **[2026-03-28] UI — Sidebar: titlu proiect prominent + hover glow + puls pe activ:**
+  - Titlu proiect: `font-size 16px`, `font-weight 700`, `color #ffffff`, `letter-spacing 0.05em`, separator `border-bottom 1px solid rgba(255,255,255,0.07)` dedesubt
+  - FileRow: tranziție `all 0.3s ease` pe background/color/border-color/transform/box-shadow
+  - Hover: `box-shadow inset 0 0 20px ${color}12` (glow subtil inset cu culoarea extensiei)
+  - Activ: `box-shadow inset 0 0 20px ${color}1a + 0 0 10px ${color}18` + animație CSS `sidebar-pulse` 2.4s infinite — `border-left-width 3px→5px` + `opacity 1→0.88`
+  - `<SidebarStyles />` — component care injectează `@keyframes sidebar-pulse` în `<style>` global
 * [x] **[2026-03-28] UI — Sidebar: file items cu gradient + border-left colorat per extensie:**
   - `EXT_FILE_STYLE` map: gradient normal + active + borderColor per extensie (js/jsx/py/rs/ts/tsx/c/cpp/go/java + fallback roz)
   - `getFileStyle(filename)` — extrage extensia și returnează stilul corespunzător
