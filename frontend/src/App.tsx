@@ -126,6 +126,7 @@ function EditorPage() {
   const [connectedUsers, setConnectedUsers] = useState<ConnectedUser[]>([])
   const [output, setOutput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [isBlocked, setIsBlocked] = useState(false)
   const [toast, setToast] = useState(false)
   const toastShownRef = useRef(false)
   const lastCodeRef = useRef('')
@@ -173,9 +174,10 @@ function EditorPage() {
     }
   }
 
-  const handleRun = async () => {
+  const handleRun = async (force = false) => {
     if (!activeFile) return
     setIsLoading(true)
+    setIsBlocked(false)
     setOutput('')
 
     try {
@@ -185,7 +187,7 @@ function EditorPage() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session?.access_token}`,
         },
-        body: JSON.stringify({ language: activeFile.language, code: lastCodeRef.current }),
+        body: JSON.stringify({ language: activeFile.language, code: lastCodeRef.current, force }),
       })
 
       if (!res.ok || !res.body) {
@@ -221,6 +223,7 @@ function EditorPage() {
               ).join('\n')
               setOutput(prev => prev + warnings + '\n')
             } else if (event.type === 'blocked') {
+              setIsBlocked(true)
               setOutput(prev => prev + `\n🛑 ${event.message}\n`)
             } else if (event.type === 'error') {
               setOutput(prev => prev + `ERROR: ${event.content}\n`)
@@ -369,9 +372,11 @@ function EditorPage() {
             output={output}
             isLoading={isLoading}
             onRun={handleRun}
-            onClear={() => setOutput('')}
+            onClear={() => { setOutput(''); setIsBlocked(false) }}
             collapsed={terminalCollapsed}
             onToggleCollapse={() => setTerminalCollapsed(c => !c)}
+            isBlocked={isBlocked}
+            onForceRun={() => handleRun(true)}
           />
         </div>
       </div>

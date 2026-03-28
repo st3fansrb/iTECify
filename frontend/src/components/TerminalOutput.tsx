@@ -5,9 +5,11 @@ interface TerminalOutputProps {
   onClear: () => void
   collapsed?: boolean
   onToggleCollapse?: () => void
+  isBlocked?: boolean
+  onForceRun?: () => void
 }
 
-export default function TerminalOutput({ output, isLoading, onRun, onClear, collapsed = false, onToggleCollapse }: TerminalOutputProps) {
+export default function TerminalOutput({ output, isLoading, onRun, onClear, collapsed = false, onToggleCollapse, isBlocked = false, onForceRun }: TerminalOutputProps) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
       {/* Terminal header */}
@@ -17,6 +19,29 @@ export default function TerminalOutput({ output, isLoading, onRun, onClear, coll
           <span className="text-pink-300 text-xs uppercase tracking-widest font-mono">Terminal</span>
         </div>
         <div className="flex gap-2" style={{ alignItems: 'center' }}>
+          {isBlocked && onForceRun && (
+            <button
+              onClick={onForceRun}
+              disabled={isLoading}
+              style={{
+                padding: '6px 14px',
+                fontSize: '12px',
+                fontWeight: 600,
+                background: 'rgba(251,191,36,0.15)',
+                border: '1.5px solid rgba(251,191,36,0.6)',
+                borderRadius: '8px',
+                color: '#fbbf24',
+                cursor: isLoading ? 'not-allowed' : 'pointer',
+                opacity: isLoading ? 0.5 : 1,
+                transition: 'all 0.2s',
+                fontFamily: 'monospace',
+              }}
+              onMouseEnter={e => { if (!isLoading) e.currentTarget.style.background = 'rgba(251,191,36,0.3)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(251,191,36,0.15)' }}
+            >
+              ⚠ Execute Anyway
+            </button>
+          )}
           <button
             onClick={onRun}
             disabled={isLoading}
