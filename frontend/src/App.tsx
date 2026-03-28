@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useState, useEffect, useRef } from 'react'
 import Sidebar from './components/Sidebar'
 import CodeEditor from './components/CodeEditor'
@@ -124,7 +124,7 @@ function RealtimeEditor({
 function EditorPage() {
   const { files, loading: filesLoading, addFile, projectId } = useProjectFiles()
   const { outputs, broadcast, clearOutputs } = useSharedTerminal(projectId)
-  const navigate = useNavigate()
+
   const [activeFileId, setActiveFileId] = useState<string>('')
   const [connectedUsers, setConnectedUsers] = useState<ConnectedUser[]>([])
   const [output, setOutput] = useState('')
