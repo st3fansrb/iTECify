@@ -108,6 +108,15 @@
   - creat `hooks/usePersonalTerminal.ts` — state local pur, fără Supabase, expune personalOutputs/addPersonalEntry/clearPersonalOutputs
   - `TerminalOutput.tsx`: adăugat tabs Shared/My Terminal în header; personal tab afișează TerminalEntry[] cu culori per tip; Clear șterge tab-ul activ
   - `App.tsx`: integrat usePersonalTerminal, addPersonalEntry apelat la fiecare event SSE (command/stdout/stderr/error/exit), props noi pasate la TerminalOutput
+* [x] **[2026-03-28] UI — Sidebar: file items cu gradient + border-left colorat per extensie:**
+  - `EXT_FILE_STYLE` map: gradient normal + active + borderColor per extensie (js/jsx/py/rs/ts/tsx/c/cpp/go/java + fallback roz)
+  - `getFileStyle(filename)` — extrage extensia și returnează stilul corespunzător
+  - Component separat `FileRow` (useState hover) — fiecare item gestionează propria stare hover
+  - Fișier normal: `margin 4px 8px`, `padding 10px 12px`, `borderRadius 8px`, border-left 2px transparent → colorat la hover
+  - Hover: `translateX(4px)` + gradient apare + border-left colorat (2px)
+  - Activ: gradient mai pronunțat (`gradientActive`), border-left 3px, `glow box-shadow`, culoare text `#ffffff`
+  - Badge-urile C/C++ actualizate la `#a8b9cc` (gri-albăstrui, lizibil pe fundal colorat)
+  - Tree connector (`├`/`└`) eliminat — incompatibil cu noul layout card-style
 * [x] **[2026-03-28] UI — DashboardPage v2 — dashboard-bg animat + glassmorphism fix:**
   - Înlocuit blob.png cu `dashboard-bg.png`: `filter: hue-rotate(260deg) saturate(3) brightness(1.5)` (alb→mov/roz), animație `dash-bg-spin 20s linear infinite` + `dash-bg-float 6s ease-in-out infinite` (translateY via margin-top)
   - Glow orbs roz stânga-sus + mov dreapta-jos (opacitate ușor crescută față de v1)
