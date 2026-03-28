@@ -141,6 +141,65 @@ function RealtimeEditor({
   )
 }
 
+function TabItem({ file, isActive, onSelect, onClose }: { file: { id: string; name: string }; isActive: boolean; onSelect: () => void; onClose: (e: React.MouseEvent) => void }) {
+  const [hovered, setHovered] = useState(false)
+  return (
+    <div
+      style={{ position: 'relative', flexShrink: 0, display: 'flex', alignItems: 'center', animation: 'tab-fade-in 0.18s ease both' }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <button
+        onClick={onSelect}
+        style={{
+          padding: hovered && !isActive ? '6px 30px 6px 14px' : '6px 14px',
+          fontSize: '12px',
+          fontFamily: 'monospace',
+          fontWeight: isActive ? 600 : 400,
+          borderRadius: '6px',
+          cursor: 'pointer',
+          transition: 'all 0.18s',
+          background: isActive ? 'rgba(249,168,212,0.15)' : hovered ? 'rgba(255,255,255,0.05)' : 'transparent',
+          border: 'none',
+          borderBottom: isActive ? '2px solid #f472b6' : '2px solid transparent',
+          color: isActive ? '#f9a8d4' : hovered ? '#ffffff' : 'rgba(255,255,255,0.4)',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {file.name}
+      </button>
+      {hovered && (
+        <button
+          onClick={onClose}
+          title="Close tab"
+          style={{
+            position: 'absolute',
+            right: '6px',
+            width: '14px',
+            height: '14px',
+            background: 'transparent',
+            border: 'none',
+            color: 'rgba(255,255,255,0.4)',
+            cursor: 'pointer',
+            fontSize: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: '3px',
+            padding: 0,
+            lineHeight: 1,
+            transition: 'all 0.15s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.color = '#f9a8d4'; e.currentTarget.style.background = 'rgba(236,72,153,0.25)' }}
+          onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.4)'; e.currentTarget.style.background = 'transparent' }}
+        >
+          ×
+        </button>
+      )}
+    </div>
+  )
+}
+
 function EditorPage({ externalProjectId, onProjectName }: { externalProjectId?: string; onProjectName?: (name: string) => void }) {
   const navigate = useNavigate()
   const { files, loading: filesLoading, addFile, restoreDefaults, projectId, projectName } = useProjectFiles(externalProjectId)
@@ -438,79 +497,22 @@ function EditorPage({ externalProjectId, onProjectName }: { externalProjectId?: 
         {/* Tab bar */}
         <div style={{
           display: 'flex', alignItems: 'center',
-          background: 'rgba(0,0,0,0.25)',
+          background: 'rgba(0,0,0,0.3)',
           backdropFilter: 'blur(10px)',
           borderBottom: '1px solid rgba(255,255,255,0.08)',
           padding: '4px 8px',
           gap: '4px',
         }}>
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '4px', overflowX: 'auto', flexWrap: 'nowrap' }}>
-            {openFiles.map((file) => {
-              const isActive = activeFileId === file.id
-              return (
-                <div key={file.id} style={{ position: 'relative', flexShrink: 0, display: 'flex', alignItems: 'center' }}>
-                  <button
-                    onClick={() => setActiveFileId(file.id)}
-                    style={{
-                      padding: '5px 28px 5px 14px',
-                      fontSize: '12px',
-                      fontWeight: 600,
-                      fontFamily: 'monospace',
-                      letterSpacing: '0.03em',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s',
-                      background: isActive ? 'rgba(236,72,153,0.25)' : 'rgba(255,255,255,0.05)',
-                      border: isActive ? '1.5px solid #f472b6' : '1.5px solid rgba(255,255,255,0.15)',
-                      color: isActive ? '#f9a8d4' : 'rgba(255,255,255,0.4)',
-                      whiteSpace: 'nowrap',
-                    }}
-                    onMouseEnter={e => {
-                      if (!isActive) {
-                        e.currentTarget.style.background = 'rgba(236,72,153,0.1)'
-                        e.currentTarget.style.borderColor = 'rgba(244,114,182,0.4)'
-                        e.currentTarget.style.color = 'rgba(249,168,212,0.7)'
-                      }
-                    }}
-                    onMouseLeave={e => {
-                      if (!isActive) {
-                        e.currentTarget.style.background = 'rgba(255,255,255,0.05)'
-                        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'
-                        e.currentTarget.style.color = 'rgba(255,255,255,0.4)'
-                      }
-                    }}
-                  >
-                    {file.name}
-                  </button>
-                  {/* Close tab button */}
-                  <button
-                    onClick={e => closeFileTab(file.id, e)}
-                    title="Close tab"
-                    style={{
-                      position: 'absolute',
-                      right: '7px',
-                      width: '14px',
-                      height: '14px',
-                      background: 'transparent',
-                      border: 'none',
-                      color: 'rgba(255,255,255,0.3)',
-                      cursor: 'pointer',
-                      fontSize: '11px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      borderRadius: '3px',
-                      padding: 0,
-                      lineHeight: 1,
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.color = '#f9a8d4'; e.currentTarget.style.background = 'rgba(236,72,153,0.25)' }}
-                    onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.3)'; e.currentTarget.style.background = 'transparent' }}
-                  >
-                    ×
-                  </button>
-                </div>
-              )
-            })}
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '2px', overflowX: 'auto', flexWrap: 'nowrap' }}>
+            {openFiles.map((file) => (
+              <TabItem
+                key={file.id}
+                file={file}
+                isActive={activeFileId === file.id}
+                onSelect={() => setActiveFileId(file.id)}
+                onClose={e => closeFileTab(file.id, e)}
+              />
+            ))}
           </div>
           {/* Editor mode toggle */}
           <div style={{ display: 'flex', gap: '5px', marginLeft: '8px', marginRight: '4px' }}>
@@ -709,6 +711,10 @@ function EditorPage({ externalProjectId, onProjectName }: { externalProjectId?: 
           from { opacity: 0; transform: translateX(40px); }
           to   { opacity: 1; transform: translateX(0); }
         }
+        @keyframes tab-fade-in {
+          from { opacity: 0; transform: translateY(-4px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
       `}</style>
     </div>
   )
@@ -782,9 +788,10 @@ function MultiProjectEditorWrapper() {
       <div style={{
         display: 'flex',
         alignItems: 'center',
-        background: 'rgba(5,2,20,0.7)',
+        background: 'rgba(0,0,0,0.3)',
         backdropFilter: 'blur(10px)',
-        borderBottom: '1px solid rgba(139,92,246,0.2)',
+        WebkitBackdropFilter: 'blur(10px)',
+        borderBottom: '1px solid rgba(249,168,212,0.15)',
         padding: '4px 8px',
         gap: '4px',
         flexShrink: 0,
@@ -797,35 +804,37 @@ function MultiProjectEditorWrapper() {
               <button
                 onClick={() => setActiveIdx(i)}
                 style={{
-                  padding: '4px 26px 4px 10px',
-                  fontSize: '11px',
+                  padding: '3px 24px 3px 8px',
+                  fontSize: '10px',
                   fontWeight: 600,
                   fontFamily: 'monospace',
-                  letterSpacing: '0.03em',
-                  borderRadius: '8px',
+                  letterSpacing: '0.04em',
+                  borderRadius: '6px',
                   cursor: 'pointer',
                   transition: 'all 0.2s',
-                  background: isActive ? 'rgba(139,92,246,0.25)' : 'rgba(255,255,255,0.04)',
-                  border: isActive ? '1.5px solid #a78bfa' : '1.5px solid rgba(255,255,255,0.12)',
-                  color: isActive ? '#c4b5fd' : 'rgba(255,255,255,0.4)',
+                  background: isActive ? 'rgba(244,114,182,0.18)' : 'transparent',
+                  border: isActive ? '1px solid rgba(244,114,182,0.4)' : '1px solid transparent',
+                  color: 'white',
                   whiteSpace: 'nowrap',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
                 }}
                 onMouseEnter={e => {
-                  if (!isActive) {
-                    e.currentTarget.style.background = 'rgba(139,92,246,0.12)'
-                    e.currentTarget.style.borderColor = 'rgba(167,139,250,0.4)'
-                    e.currentTarget.style.color = 'rgba(196,181,253,0.8)'
-                  }
+                  if (!isActive) { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)' }
                 }}
                 onMouseLeave={e => {
-                  if (!isActive) {
-                    e.currentTarget.style.background = 'rgba(255,255,255,0.04)'
-                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)'
-                    e.currentTarget.style.color = 'rgba(255,255,255,0.4)'
-                  }
+                  if (!isActive) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'transparent' }
                 }}
               >
-                📁 {p.name}
+                <span style={{ opacity: 0.4, fontSize: '9px' }}>📁</span>
+                <span style={isActive ? {
+                  background: 'linear-gradient(135deg, #f9a8d4, #d8b4fe)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                } : { color: 'rgba(255,255,255,0.4)' }}>
+                  {p.name}
+                </span>
               </button>
               <button
                 onClick={e => closeProject(i, e)}
@@ -847,7 +856,7 @@ function MultiProjectEditorWrapper() {
                   padding: 0,
                   lineHeight: 1,
                 }}
-                onMouseEnter={e => { e.currentTarget.style.color = '#c4b5fd'; e.currentTarget.style.background = 'rgba(139,92,246,0.25)' }}
+                onMouseEnter={e => { e.currentTarget.style.color = '#f9a8d4'; e.currentTarget.style.background = 'rgba(236,72,153,0.2)' }}
                 onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.3)'; e.currentTarget.style.background = 'transparent' }}
               >
                 ×

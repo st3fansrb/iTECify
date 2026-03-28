@@ -32,6 +32,10 @@
 * [x] UI — AIBlock: TriqBot repositionat la bottom: 200px, right: 24px (deasupra terminalului)
 * [x] UI — AIBlock: TriqBot poziționat fix la position:fixed, right:32px, top:50vh, transform:translateY(-50%) — centrat vertical pe ecran, drag eliminat complet
 * [x] UI — LoginPage: header card centrat (display:flex, flexDirection:column, alignItems:center, textAlign:center)
+* [x] UI — Sidebar header: titlu înlocuit cu 'iTECify · editor' 13px — 'iTECify' roz #f472b6 bold cu animație @keyframes shimmer (pulsează între #f472b6 și #d8b4fe), ' · editor' rgba(255,255,255,0.4) normal
+* [x] UI — Sidebar: buton '+ New Project' mutat deasupra titlului Explorer (primul element din zona flex-1, înaintea section header-ului)
+* [x] UI — Tab bar editor (App.tsx): redesenat cu TabItem component (hover state propriu); bg rgba(0,0,0,0.3) blur(10px); tab activ: rgba(249,168,212,0.15) + border-bottom 2px solid #f472b6; tab inactiv: rgba(255,255,255,0.4), hover alb + rgba(255,255,255,0.05); buton X vizibil doar la hover; animație @keyframes tab-fade-in (opacity+translateY) la deschidere tab nou
+* [x] UI — Bara proiecte (MultiProjectEditorWrapper): glassmorphism rgba(0,0,0,0.3) blur(10px), border-bottom rgba(249,168,212,0.15); tab activ: gradient roz #f9a8d4→#d8b4fe pe numele proiectului + border-bottom 2px solid #f472b6; tab inactiv: rgba(255,255,255,0.5), hover transparent→rgba(255,255,255,0.05)
 * [x] Debug — console.log adăugat: remoteCursors în CodeEditor.tsx + presence state în useRealtimeEditor.ts + init/subscribe/track în useRealtimeEditor.ts (pentru verificare funcționare Presence)
 * [x] Feature 2 — Cursoare live în editor:
   - useRealtimeEditor: cursor schimbat din `number | null` → `{ lineNumber, column } | null`; updateCursor actualizat; remoteCursors expus în return
