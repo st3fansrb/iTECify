@@ -22,10 +22,10 @@ router.post('/generate', requireAuth, async (req, res) => {
     return res.status(400).json({ error: 'Code too long. Max 5000 characters.' });
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = process.env.GROQ_API_KEY;
 
   if (!apiKey) {
-    console.warn('ANTHROPIC_API_KEY not set — using fallback response');
+    console.warn('GROQ_API_KEY not set — using fallback response');
     return res.json({
       generatedCode: FALLBACK_RESPONSES[language] || '// AI unavailable',
       model: 'fallback',
@@ -34,20 +34,24 @@ router.post('/generate', requireAuth, async (req, res) => {
   }
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
+        'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
+        model: 'llama-3.1-8b-instant',
         max_tokens: 1000,
+        temperature: 0.3,
         messages: [
           {
+            role: 'system',
+            content: `You are a code assistant in an online IDE called iTECify. The user is working in ${language}. Reply with ONLY the code — no explanations, no markdown fences, no comments. Pure executable ${language} code only.`,
+          },
+          {
             role: 'user',
-            content: `You are a code assistant in an online IDE called iTECify. The user is working in ${language}.\n\nIMPORTANT: Reply with ONLY the code — no explanations, no markdown fences, no comments about what the code does. Pure executable ${language} code only.\n\nCurrent code:\n\`\`\`${language}\n${code}\n\`\`\`\n\nRequest: ${prompt}`,
+            content: `Current code:\n\`\`\`${language}\n${code}\n\`\`\`\n\nRequest: ${prompt}`,
           },
         ],
       }),
@@ -62,7 +66,7 @@ router.post('/generate', requireAuth, async (req, res) => {
     }
 
     const data = await response.json();
-    let generatedCode = data.content?.[0]?.text?.trim() || '';
+    let generatedCode = data.choices?.[0]?.message?.content?.trim() || '';
 
     // Strip markdown fences if model adds them anyway
     generatedCode = generatedCode
@@ -79,7 +83,6 @@ router.post('/generate', requireAuth, async (req, res) => {
   } catch (error) {
     console.error('AI generation error:', error.message);
 
-    // Fallback so the demo never crashes due to an external API
     res.json({
       generatedCode: FALLBACK_RESPONSES[language] || '// AI temporarily unavailable',
       model: 'fallback',
