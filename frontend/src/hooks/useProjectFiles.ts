@@ -56,12 +56,15 @@ export function useProjectFiles(): UseProjectFilesReturn {
         let projectId: string
 
         // ── 1. Caută proiectul owned de user ─────────────────────────────────
-        const { data: ownedProject } = await supabase
+        const { data: ownedRows } = await supabase
           .from('projects')
           .select('id')
           .eq('owner_id', user.id)
           .eq('name', DEMO_PROJECT_NAME)
-          .maybeSingle()
+          .order('created_at')
+          .limit(1)
+
+        const ownedProject = ownedRows?.[0] ?? null
 
         if (ownedProject) {
           projectId = ownedProject.id
