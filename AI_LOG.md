@@ -88,3 +88,7 @@
   - **`ConnectedUsers.tsx`**: actualizat la interfața nouă `ConnectedUser` (userId/displayName/avatarColor/cursor). Eliminat `useProfile` — `displayName` și `avatarColor` vin direct din presence payload. Dots render direct cu datele disponibile.
   - **`useRealtimeEditor.ts`**: `projectId` făcut opțional. Channel fallback: dacă nu există `projectId`, folosește `file-${fileId}`. Filter postgres_changes adaptat: `project_id=eq.${projectId}` sau `id=eq.${fileId}`.
   - **`App.tsx`**: eliminat interfața locală `ConnectedUser`, importat din hook. `RealtimeEditor` extins cu props `projectId?` și `currentUserId?`. Transmitere `projectId` din `useProjectFiles()` și `currentUserId={user?.id}` spre `CodeEditor` pentru excluderea cursorului propriu.
+* [x] **[2026-03-28] Membru 2 — Feature 3: Personal Terminals:**
+  - creat `hooks/usePersonalTerminal.ts` — state local pur, fără Supabase, expune personalOutputs/addPersonalEntry/clearPersonalOutputs
+  - `TerminalOutput.tsx`: adăugat tabs Shared/My Terminal în header; personal tab afișează TerminalEntry[] cu culori per tip; Clear șterge tab-ul activ
+  - `App.tsx`: integrat usePersonalTerminal, addPersonalEntry apelat la fiecare event SSE (command/stdout/stderr/error/exit), props noi pasate la TerminalOutput
