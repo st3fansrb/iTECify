@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import blobSrc from '../assets/blob.png'
 import feature1 from '../assets/feature1.png'
 import feature2 from '../assets/feature2.png'
@@ -34,21 +34,6 @@ export default function HomePage() {
   const [openDropdown, setOpenDropdown] = useState<'contact' | 'about' | null>(null)
   const contactRef = useRef<HTMLDivElement>(null)
   const aboutRef = useRef<HTMLDivElement>(null)
-
-  const closeDropdowns = useCallback(() => setOpenDropdown(null), [])
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (
-        contactRef.current && !contactRef.current.contains(e.target as Node) &&
-        aboutRef.current && !aboutRef.current.contains(e.target as Node)
-      ) {
-        setOpenDropdown(null)
-      }
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
 
   const handleLogoClick = () => {
     clickCountRef.current += 1
@@ -175,35 +160,40 @@ export default function HomePage() {
           {/* Right side nav items */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
 
-            {/* Contact button + dropdown */}
-            <div ref={contactRef} style={{ position: 'relative' }}>
+            {/* Contact button + dropdown — closes on mouse leave */}
+            <div
+              ref={contactRef}
+              style={{ position: 'relative' }}
+              onMouseEnter={() => setOpenDropdown('contact')}
+              onMouseLeave={() => setOpenDropdown(null)}
+            >
               <button
-                onClick={() => setOpenDropdown(o => o === 'contact' ? null : 'contact')}
                 style={{
                   padding: '7px 16px', fontSize: '13px', fontWeight: 500,
                   background: openDropdown === 'contact' ? 'rgba(249,168,212,0.12)' : 'transparent',
                   border: '1px solid rgba(255,255,255,0.12)',
-                  borderRadius: '8px', color: 'rgba(255,255,255,0.75)',
+                  borderRadius: '8px', color: '#ffffff',
                   cursor: 'pointer', transition: 'all 0.2s', letterSpacing: '0.02em',
                 }}
-                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(249,168,212,0.1)'; e.currentTarget.style.color = 'white' }}
-                onMouseLeave={e => { e.currentTarget.style.background = openDropdown === 'contact' ? 'rgba(249,168,212,0.12)' : 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.75)' }}
               >
                 Contact
               </button>
               {openDropdown === 'contact' && (
                 <div style={{
-                  position: 'absolute', top: 'calc(100% + 8px)', right: 0,
-                  minWidth: '280px', zIndex: 100,
-                  background: 'rgba(8,4,18,0.92)',
+                  position: 'absolute', top: 'calc(100% + 4px)', right: 0,
+                  minWidth: '320px', zIndex: 99999,
+                  maxHeight: '350px', overflowY: 'auto',
+                  scrollbarWidth: 'thin', scrollbarColor: '#f472b6 transparent',
+                  background: 'rgba(8,4,25,0.98)',
                   backdropFilter: 'blur(20px)',
                   WebkitBackdropFilter: 'blur(20px)',
                   border: '1px solid rgba(249,168,212,0.2)',
                   borderRadius: '12px', padding: '16px',
-                  boxShadow: '0 8px 40px rgba(0,0,0,0.5), 0 0 30px rgba(249,168,212,0.05)',
+                  boxShadow: '0 8px 40px rgba(0,0,0,0.7), 0 0 30px rgba(249,168,212,0.06)',
                   animation: 'dropdown-in 0.15s ease both',
+                  color: '#ffffff',
                 }}>
-                  <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.15em', color: 'rgba(249,168,212,0.5)', textTransform: 'uppercase', fontFamily: 'monospace', marginBottom: '8px' }}>Email</p>
+                  <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.15em', color: 'rgba(249,168,212,0.7)', textTransform: 'uppercase', fontFamily: 'monospace', marginBottom: '8px' }}>Email</p>
                   <a
                     href="mailto:triquetra.itecify@gmail.com"
                     style={{ fontSize: '13px', color: '#f9a8d4', textDecoration: 'none', fontFamily: 'monospace', display: 'block', marginBottom: '16px' }}
@@ -212,9 +202,9 @@ export default function HomePage() {
                   >
                     triquetra.itecify@gmail.com
                   </a>
-                  <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.15em', color: 'rgba(249,168,212,0.5)', textTransform: 'uppercase', fontFamily: 'monospace', marginBottom: '8px' }}>Team</p>
+                  <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.15em', color: 'rgba(249,168,212,0.7)', textTransform: 'uppercase', fontFamily: 'monospace', marginBottom: '8px' }}>Team</p>
                   {['Mateescu Vlad', 'Sirbu Stefan', 'Termure Madalina'].map(name => (
-                    <p key={name} style={{ fontSize: '13px', color: 'rgba(255,255,255,0.7)', marginBottom: '4px', paddingLeft: '2px' }}>
+                    <p key={name} style={{ fontSize: '13px', color: '#ffffff', marginBottom: '4px', paddingLeft: '2px' }}>
                       {name}
                     </p>
                   ))}
@@ -222,50 +212,55 @@ export default function HomePage() {
               )}
             </div>
 
-            {/* About Us button + dropdown */}
-            <div ref={aboutRef} style={{ position: 'relative' }}>
+            {/* About Us button + dropdown — closes on mouse leave */}
+            <div
+              ref={aboutRef}
+              style={{ position: 'relative' }}
+              onMouseEnter={() => setOpenDropdown('about')}
+              onMouseLeave={() => setOpenDropdown(null)}
+            >
               <button
-                onClick={() => setOpenDropdown(o => o === 'about' ? null : 'about')}
                 style={{
                   padding: '7px 16px', fontSize: '13px', fontWeight: 500,
                   background: openDropdown === 'about' ? 'rgba(249,168,212,0.12)' : 'transparent',
                   border: '1px solid rgba(255,255,255,0.12)',
-                  borderRadius: '8px', color: 'rgba(255,255,255,0.75)',
+                  borderRadius: '8px', color: '#ffffff',
                   cursor: 'pointer', transition: 'all 0.2s', letterSpacing: '0.02em',
                 }}
-                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(249,168,212,0.1)'; e.currentTarget.style.color = 'white' }}
-                onMouseLeave={e => { e.currentTarget.style.background = openDropdown === 'about' ? 'rgba(249,168,212,0.12)' : 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.75)' }}
               >
                 About Us
               </button>
               {openDropdown === 'about' && (
                 <div style={{
-                  position: 'absolute', top: 'calc(100% + 8px)', right: 0,
-                  minWidth: '300px', zIndex: 100,
-                  background: 'rgba(8,4,18,0.92)',
+                  position: 'absolute', top: 'calc(100% + 4px)', right: 0,
+                  minWidth: '320px', zIndex: 99999,
+                  maxHeight: '350px', overflowY: 'auto',
+                  scrollbarWidth: 'thin', scrollbarColor: '#f472b6 transparent',
+                  background: 'rgba(8,4,25,0.98)',
                   backdropFilter: 'blur(20px)',
                   WebkitBackdropFilter: 'blur(20px)',
                   border: '1px solid rgba(249,168,212,0.2)',
                   borderRadius: '12px', padding: '16px',
-                  boxShadow: '0 8px 40px rgba(0,0,0,0.5), 0 0 30px rgba(249,168,212,0.05)',
+                  boxShadow: '0 8px 40px rgba(0,0,0,0.7), 0 0 30px rgba(249,168,212,0.06)',
                   animation: 'dropdown-in 0.15s ease both',
+                  color: '#ffffff',
                 }}>
-                  <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.65)', lineHeight: 1.6, marginBottom: '16px' }}>
+                  <p style={{ fontSize: '13px', color: '#ffffff', lineHeight: 1.6, marginBottom: '16px' }}>
                     iTECify is a real-time collaborative IDE — write, run, and share code with your team instantly.
                   </p>
-                  <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.15em', color: 'rgba(249,168,212,0.5)', textTransform: 'uppercase', fontFamily: 'monospace', marginBottom: '8px' }}>How to use</p>
+                  <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.15em', color: 'rgba(249,168,212,0.7)', textTransform: 'uppercase', fontFamily: 'monospace', marginBottom: '8px' }}>How to use</p>
                   {['1. Create an account', '2. Open or create a project', '3. Invite your team and code together'].map(step => (
-                    <p key={step} style={{ fontSize: '13px', color: 'rgba(255,255,255,0.7)', marginBottom: '4px', paddingLeft: '2px', fontFamily: 'monospace' }}>
+                    <p key={step} style={{ fontSize: '13px', color: '#ffffff', marginBottom: '4px', paddingLeft: '2px', fontFamily: 'monospace' }}>
                       {step}
                     </p>
                   ))}
-                  <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.15em', color: 'rgba(249,168,212,0.5)', textTransform: 'uppercase', fontFamily: 'monospace', margin: '14px 0 8px' }}>Built with</p>
+                  <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.15em', color: 'rgba(249,168,212,0.7)', textTransform: 'uppercase', fontFamily: 'monospace', margin: '14px 0 8px' }}>Built with</p>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                     {['React', 'TypeScript', 'Monaco Editor', 'Supabase', 'Docker'].map(tech => (
                       <span key={tech} style={{
                         padding: '3px 10px', fontSize: '11px', fontFamily: 'monospace',
-                        background: 'rgba(249,168,212,0.1)', border: '1px solid rgba(249,168,212,0.2)',
-                        borderRadius: '20px', color: '#f9a8d4',
+                        background: 'rgba(249,168,212,0.15)', border: '1px solid rgba(249,168,212,0.3)',
+                        borderRadius: '20px', color: '#ffffff',
                       }}>
                         {tech}
                       </span>

@@ -22,6 +22,7 @@
 * [x] UI — Sidebar: badge-uri colorate per extensie (JS galben, PY albastru, RS roșu etc.), 18×16px, border-radius 3px
 * [x] Fix — HomePage: import blob revenит la blob.png (un coleg îl schimbase în hero.png, cauzând dispariția animației de fundal)
 * [x] UI — HomePage navbar: butoane Contact + About Us cu dropdownuri glassmorphism (close on outside click, animatie dropdown-in)
+* [x] UI — Dropdownuri navbar: onMouseLeave pe wrapper (nu click afară), zIndex 99999, bg rgba(8,4,25,0.98), text #ffffff, scrollbar roz, max-height 350px
 
 ## ❌ Erori Întâlnite și Încercări Eșuate
 *(Când primești o eroare, documentează abordarea greșită aici pentru a nu o repeta)*
