@@ -74,7 +74,7 @@ async function createOrJoinRoom(roomId: string | null): Promise<{ roomId: string
     .insert({ name: 'iTECify Room' })
     .select()
     .single()
-  if (projError || !project) throw new Error('Could not create room')
+  if (projError || !project) throw new Error(projError?.message ?? 'Could not create project')
 
   // Create files for this project
   const { data: createdFiles, error: filesError } = await supabase
@@ -86,7 +86,7 @@ async function createOrJoinRoom(roomId: string | null): Promise<{ roomId: string
       content: INITIAL_CODE[f.name],
     })))
     .select('id, name, content')
-  if (filesError || !createdFiles) throw new Error('Could not create files')
+  if (filesError || !createdFiles) throw new Error(filesError?.message ?? 'Could not create files')
 
   const fileMap: FileMap = {}
   createdFiles.forEach(f => { fileMap[f.name] = { id: f.id, content: f.content ?? '' } })
@@ -345,7 +345,7 @@ function EditorPage() {
           setSearchParams({ room: rid }, { replace: true })
         }
       })
-      .catch(() => setError('Nu s-a putut crea room-ul. Verifică conexiunea Supabase.'))
+      .catch((err: unknown) => setError(`Eroare Supabase: ${err instanceof Error ? err.message : String(err)}`))
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (error) {

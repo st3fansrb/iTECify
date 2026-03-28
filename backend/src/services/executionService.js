@@ -12,6 +12,7 @@ const TIMEOUT_MS = 10000; // 10s hard kill
 const RUNNERS = {
   javascript: { image: 'node:18-alpine',  file: 'code.js', cmd: ['node',   '/sandbox/code.js'] },
   python:     { image: 'python:3.9-slim', file: 'code.py', cmd: ['python', '/sandbox/code.py'] },
+  rust:       { image: 'rust:alpine',     file: 'code.rs', cmd: ['sh', '-c', 'rustc /sandbox/code.rs -o /tmp/out 2>&1 && /tmp/out'] },
 };
 
 /**
