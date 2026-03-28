@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { useFileHistory } from './hooks/useFileHistory'
 import Sidebar from './components/Sidebar'
 import CodeEditor from './components/CodeEditor'
 import TerminalOutput from './components/TerminalOutput'
@@ -67,6 +68,7 @@ function RealtimeEditor({
     fileId,
     initialContent: '',
   })
+  const { saveSnapshot } = useFileHistory(fileId)
 
   // Propagate connected users up to EditorPage
   useEffect(() => { onUsersChange(connectedUsers) }, [connectedUsers, onUsersChange])
@@ -74,9 +76,24 @@ function RealtimeEditor({
   // Propagate initial loaded code so Run works without typing first
   useEffect(() => { if (!loading && code) onCodeChange(code) }, [loading])
 
+  // Auto-save snapshot after 30s of inactivity
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lastSavedCodeRef = useRef<string>('')
+  const scheduleSnapshot = useCallback((val: string) => {
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
+    autoSaveTimerRef.current = setTimeout(async () => {
+      if (val.trim() && val !== lastSavedCodeRef.current) {
+        await saveSnapshot(val, currentUserId ?? null)
+        lastSavedCodeRef.current = val
+      }
+    }, 30_000)
+  }, [saveSnapshot, currentUserId])
+  useEffect(() => () => { if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current) }, [])
+
   const handleChange = (val: string) => {
     updateCode(val)
     onCodeChange(val)
+    scheduleSnapshot(val)
   }
 
   const isTimeTraveling = timeTravelContent !== null
