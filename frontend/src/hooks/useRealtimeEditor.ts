@@ -49,6 +49,7 @@ export interface UseRealtimeEditorReturn {
 
 type CursorPayload = ConnectedUser & { action: 'update' | 'leave' }
 type UserEntry     = ConnectedUser & { _lastSeen: number }
+type CodePayload   = { userId: string; fileId: string; content: string }
 
 export function useRealtimeEditor({
   projectId,
@@ -150,7 +151,18 @@ export function useRealtimeEditor({
         }
       )
 
-      // 2. broadcast 'cursor' — remote cursor / presence updates
+      // 2. broadcast 'code' — instant code sync (fallback when postgres_changes is unavailable)
+      channel.on(
+        'broadcast',
+        { event: 'code' },
+        ({ payload }: { payload: CodePayload }) => {
+          if (!payload?.userId || payload.userId === uid) return
+          if (payload.fileId !== fileId) return
+          setCode(payload.content)
+        }
+      )
+
+      // 3. broadcast 'cursor' — remote cursor / presence updates
       channel.on(
         'broadcast',
         { event: 'cursor' },
@@ -174,7 +186,7 @@ export function useRealtimeEditor({
         }
       )
 
-      // 3. subscribe — only AFTER all listeners registered
+      // 4. subscribe — only AFTER all listeners registered
       channel.subscribe((status) => {
         console.log('[useRealtimeEditor] channel status:', status)
         if (status !== 'SUBSCRIBED' || !uid) return
@@ -246,10 +258,20 @@ export function useRealtimeEditor({
     })
   }, [fileId])
 
-  // ── 4. updateCode — debounced DB write on every keystroke ────────────────────
+  // ── 4. updateCode — debounced DB write + instant broadcast on every keystroke ─
   const updateCode = useCallback((newContent: string) => {
     setCode(newContent)
     setIsSaving(true)
+    // Broadcast immediately so remote users see changes in real time
+    const channel = channelRef.current
+    const uid     = currentUserIdRef.current
+    if (channel && uid) {
+      void channel.send({
+        type: 'broadcast',
+        event: 'code',
+        payload: { userId: uid, fileId, content: newContent } satisfies CodePayload,
+      })
+    }
     if (debounceTimer.current) clearTimeout(debounceTimer.current)
     debounceTimer.current = setTimeout(() => {
       void supabase
