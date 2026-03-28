@@ -211,8 +211,31 @@ const handleFileContextMenu = (file: FileItem, e: React.MouseEvent) => {
       <SidebarKeyframes />
       {/* Logo / Title */}
       <div className="border-b border-slate-700">
-        <div className="px-4 py-3">
-          <span style={{ fontSize: '16px', fontWeight: 800 }} className="text-white tracking-widest uppercase">iTECify</span>
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: '14px 16px 12px',
+          position: 'relative',
+        }}>
+          {/* Glow behind logo */}
+          <div style={{
+            position: 'absolute', inset: 0,
+            background: 'radial-gradient(ellipse at 50% 60%, rgba(236,72,153,0.12) 0%, transparent 70%)',
+            pointerEvents: 'none',
+          }} />
+          <span style={{
+            fontSize: '18px',
+            fontWeight: 900,
+            letterSpacing: '0.18em',
+            textTransform: 'uppercase',
+            background: 'linear-gradient(135deg, #f9a8d4 0%, #e879f9 40%, #a78bfa 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
+            filter: 'drop-shadow(0 0 8px rgba(236,72,153,0.45))',
+            position: 'relative',
+          }}>
+            iTECify
+          </span>
         </div>
         <div style={{ display: 'flex', gap: '6px', margin: '6px 8px 8px' }}>
           <button
