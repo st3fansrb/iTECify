@@ -198,8 +198,11 @@ app.post('/api/execute/stream', executeLimiter, requireAuth, async (req, res) =>
 
       const exitData = await container.wait();
       clearTimeout(timeoutHandle);
+      // Allow stream to flush remaining buffered data (same fix as executionService.js:77)
+      await new Promise(r => setTimeout(r, 100));
       sendEvent({ type: 'exit', code: exitData.StatusCode });
       res.end();
+      cleanupFns.forEach(fn => { try { fn(); } catch (_) {} });
 
     } else {
       // ── child_process fallback (no Docker) ──────────────────────────────────
