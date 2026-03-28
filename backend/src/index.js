@@ -90,9 +90,9 @@ async function isDockerAvailable() {
 }
 
 const FALLBACK_RUNNERS = {
-  javascript: { cmd: 'node',    ext: 'js'  },
-  python:     { cmd: 'python3', ext: 'py'  },
-  rust:       { cmd: null,      ext: 'rs'  }, // rust needs compile step, skip in fallback
+  javascript: { cmd: 'node',   ext: 'js' },
+  python:     { cmd: 'python', ext: 'py' },
+  rust:       { cmd: null,     ext: 'rs' }, // rust needs compile step, skip in fallback
 };
 
 const DOCKER_RUNNERS = {
@@ -223,9 +223,11 @@ app.post('/api/execute/stream', executeLimiter, requireAuth, async (req, res) =>
 
       const proc = spawn(runner.cmd, [tmpFile]);
 
-      // Write stdin and close it
-      if (stdin) proc.stdin.write(stdin);
-      proc.stdin.end();
+      // Write stdin and close it (guard against null stdin on spawn failure)
+      if (proc.stdin) {
+        if (stdin) proc.stdin.write(stdin);
+        proc.stdin.end();
+      }
 
       const timeoutHandle = setTimeout(() => {
         sendEvent({ type: 'error', content: 'Execution timed out (5s limit)' });

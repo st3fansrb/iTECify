@@ -152,11 +152,11 @@ async function executeWithFallback(language, code, stdin = '') {
     proc.on('close', () => finish());
     proc.on('error', err => finish(err.message));
 
-    // Write stdin and close it
-    if (stdin) {
-      proc.stdin.write(stdin);
+    // Write stdin and close it (guard against null stdin on spawn failure)
+    if (proc.stdin) {
+      if (stdin) proc.stdin.write(stdin);
+      proc.stdin.end();
     }
-    proc.stdin.end();
 
     setTimeout(() => {
       proc.kill('SIGKILL');
