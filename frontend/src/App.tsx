@@ -177,6 +177,10 @@ function EditorPage() {
 
   const handleRun = async (force = false) => {
     if (!activeFile) return
+    if (!session?.access_token) {
+      setOutput('ERROR: Not logged in. Please sign in to run code.')
+      return
+    }
     setIsLoading(true)
     setIsBlocked(false)
     setOutput('')
