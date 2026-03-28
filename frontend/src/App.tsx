@@ -562,7 +562,7 @@ function EditorPage() {
         </div>
       </div>
 
-      <AIBlock currentCode={lastCodeRef.current} language={activeFile?.language ?? 'plaintext'} />
+      <AIBlock currentCode={lastCodeRef.current} language={activeFile?.language ?? 'plaintext'} terminalHeight={terminalHeight} terminalCollapsed={terminalCollapsed} />
 
       {toast && (
         <div style={{

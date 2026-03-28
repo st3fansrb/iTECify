@@ -13,6 +13,8 @@ interface AIBlockProps {
   /** Currently visible code in the editor — used as context for AI. */
   currentCode: string
   language: string
+  terminalHeight?: number
+  terminalCollapsed?: boolean
 }
 
 interface Message {
@@ -20,7 +22,7 @@ interface Message {
   text: string
 }
 
-export default function AIBlock({ currentCode, language }: AIBlockProps) {
+export default function AIBlock({ currentCode, language, terminalHeight = 192, terminalCollapsed = false }: AIBlockProps) {
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -67,13 +69,12 @@ export default function AIBlock({ currentCode, language }: AIBlockProps) {
 
   return (
     <>
-      {/* Toggle button — TriqBot avatar (fixed position) */}
+      {/* Toggle button — TriqBot avatar (above terminal Run/Clear buttons) */}
       <div
         style={{
           position: 'fixed',
-          right: '32px',
-          top: '62vh',
-          transform: 'translateY(-50%)',
+          right: '24px',
+          bottom: `${(terminalCollapsed ? 36 : terminalHeight) + 6 + 6}px`,
           zIndex: 200,
         }}
       >
