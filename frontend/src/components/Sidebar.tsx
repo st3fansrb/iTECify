@@ -213,7 +213,7 @@ export default function Sidebar({ files, activeFile, onSelectFile, loading, onCr
     <div className="w-64 bg-slate-900 border-r border-slate-700 flex flex-col h-full select-none">
       {/* Logo / Title */}
       <div className="border-b border-slate-700">
-        <div style={{ padding: '14px 16px', textAlign: 'center' }}>
+        <div style={{ padding: '8px 16px 6px', textAlign: 'center' }}>
           <span style={{ fontSize: '17px' }}>
             <span className="sidebar-shimmer" style={{ fontWeight: 700, color: '#f472b6' }}>iTECify</span>
             <span style={{ fontWeight: 400, color: 'rgba(255,255,255,0.4)' }}>{' · editor'}</span>
