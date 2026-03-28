@@ -2,6 +2,27 @@ import { useState, useRef, useEffect } from "react";
 import "./TriqBot.css";
 import supabase from "../lib/supabase";
 
+function renderMessage(content) {
+  const parts = content.split(/(```[\w]*\n[\s\S]*?```)/g);
+  return parts.map((part, i) => {
+    const match = part.match(/^```([\w]*)\n([\s\S]*?)```$/);
+    if (match) {
+      const code = match[2];
+      return (
+        <pre key={i} style={{
+          background: '#0d0618', border: '1px solid #3d2060',
+          borderRadius: '6px', padding: '8px 10px', margin: '4px 0',
+          fontSize: '11px', fontFamily: 'monospace', color: '#c4b5fd',
+          overflowX: 'auto', whiteSpace: 'pre', lineHeight: 1.5,
+        }}>
+          {code.trimEnd()}
+        </pre>
+      );
+    }
+    return <span key={i} style={{ whiteSpace: 'pre-wrap' }}>{part}</span>;
+  });
+}
+
 export default function TriqBot() {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([
@@ -72,7 +93,7 @@ export default function TriqBot() {
                     key={i}
                     className={`triq-msg ${m.role === "assistant" ? "triq-msg-bot" : "triq-msg-user"}`}
                   >
-                    {m.content}
+                    {m.role === "assistant" ? renderMessage(m.content) : m.content}
                   </div>
                 ))}
                 {loading && (
