@@ -92,4 +92,51 @@ router.post('/generate', requireAuth, async (req, res) => {
   }
 });
 
+router.post('/chat', requireAuth, async (req, res) => {
+  const { messages } = req.body;
+
+  if (!messages || !Array.isArray(messages) || messages.length === 0) {
+    return res.status(400).json({ error: 'Missing messages array' });
+  }
+
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) {
+    return res.json({ reply: 'Triq nu este disponibil momentan (API key lipsă).' });
+  }
+
+  try {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'llama-3.1-8b-instant',
+        max_tokens: 512,
+        temperature: 0.7,
+        messages: [
+          {
+            role: 'system',
+            content: 'Ești Triq, un asistent AI elegant și concis integrat în iTECify IDE. Răspunzi scurt, clar și direct. Ajuți cu cod, debugging și întrebări despre programare.',
+          },
+          ...messages,
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error?.message || `API error ${response.status}`);
+    }
+
+    const data = await response.json();
+    const reply = data.choices?.[0]?.message?.content?.trim() ?? 'Eroare la răspuns.';
+    res.json({ reply });
+  } catch (error) {
+    console.error('[TriqBot chat error]', error.message);
+    res.json({ reply: 'A apărut o eroare. Încearcă din nou.' });
+  }
+});
+
 module.exports = router;

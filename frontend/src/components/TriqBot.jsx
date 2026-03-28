@@ -1,5 +1,27 @@
 import { useState, useRef, useEffect } from "react";
 import "./TriqBot.css";
+import supabase from "../lib/supabase";
+
+function renderMessage(content) {
+  const parts = content.split(/(```[\w]*\n[\s\S]*?```)/g);
+  return parts.map((part, i) => {
+    const match = part.match(/^```([\w]*)\n([\s\S]*?)```$/);
+    if (match) {
+      const code = match[2];
+      return (
+        <pre key={i} style={{
+          background: '#0d0618', border: '1px solid #3d2060',
+          borderRadius: '6px', padding: '8px 10px', margin: '4px 0',
+          fontSize: '11px', fontFamily: 'monospace', color: '#c4b5fd',
+          overflowX: 'auto', whiteSpace: 'pre', lineHeight: 1.5,
+        }}>
+          {code.trimEnd()}
+        </pre>
+      );
+    }
+    return <span key={i} style={{ whiteSpace: 'pre-wrap' }}>{part}</span>;
+  });
+}
 
 export default function TriqBot() {
   const [open, setOpen] = useState(false);
@@ -24,30 +46,23 @@ export default function TriqBot() {
     setLoading(true);
 
     try {
-      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
+      const res = await fetch("/api/ai/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_GROQ_API_KEY}`,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
-          model: "llama3-8b-8192",
-          messages: [
-            {
-              role: "system",
-              content:
-                "Ești Triq, un asistent AI elegant și concis. Răspunzi scurt, clar și direct. Nu ești agresiv, dar ești autoritar.",
-            },
-            ...newMessages,
-          ],
-          max_tokens: 512,
-          temperature: 0.7,
+          messages: newMessages.map(m => ({ role: m.role, content: m.content })),
         }),
       });
 
-      if (!res.ok) throw new Error(`Groq error: ${res.status}`);
+      if (!res.ok) throw new Error(`Server error: ${res.status}`);
       const data = await res.json();
-      const reply = data.choices?.[0]?.message?.content ?? "Eroare la răspuns.";
+      const reply = data.reply ?? "Eroare la răspuns.";
       setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
     } catch (err) {
       console.error(err);
@@ -78,7 +93,7 @@ export default function TriqBot() {
                     key={i}
                     className={`triq-msg ${m.role === "assistant" ? "triq-msg-bot" : "triq-msg-user"}`}
                   >
-                    {m.content}
+                    {m.role === "assistant" ? renderMessage(m.content) : m.content}
                   </div>
                 ))}
                 {loading && (

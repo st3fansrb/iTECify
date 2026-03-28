@@ -66,15 +66,15 @@ type Database = {
         Relationships: never[]
       }
       project_members: {
-        Row: { id: string; project_id: string; user_id: string; role: string; joined_at: string }
-        Insert: { id?: string; project_id: string; user_id: string; role?: string; joined_at?: string }
-        Update: { id?: string; project_id?: string; user_id?: string; role?: string; joined_at?: string }
+        Row: { project_id: string; user_id: string; role: 'owner' | 'member'; joined_at: string }
+        Insert: { project_id: string; user_id: string; role?: 'owner' | 'member'; joined_at?: string }
+        Update: { role?: 'owner' | 'member' }
         Relationships: never[]
       }
       invitations: {
-        Row: { id: string; project_id: string; invited_email: string; invited_by: string; status: string; created_at: string }
-        Insert: { id?: string; project_id: string; invited_email: string; invited_by: string; status?: string; created_at?: string }
-        Update: { id?: string; project_id?: string; invited_email?: string; invited_by?: string; status?: string; created_at?: string }
+        Row: { id: string; project_id: string; invited_email: string; invited_by: string; status: 'pending' | 'accepted' | 'rejected'; created_at: string }
+        Insert: { id?: string; project_id: string; invited_email: string; invited_by: string; status?: 'pending' | 'accepted' | 'rejected'; created_at?: string }
+        Update: { status?: 'pending' | 'accepted' | 'rejected' }
         Relationships: never[]
       }
     }

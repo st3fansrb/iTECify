@@ -18,6 +18,7 @@ const PROJECT_COLORS = [
   ['#86efac', '#22c55e'],
 ]
 
+
 function getProjectAccent(id: string): [string, string, string] {
   // deterministic pick based on id chars
   const idx = id.charCodeAt(0) % PROJECT_COLORS.length
@@ -56,10 +57,25 @@ export default function DashboardPage() {
       .insert({ name, owner_id: user.id })
       .select()
       .single()
-    if (!error && data) {
+    if (error) {
+      console.error('[DashboardPage] create project error:', error)
+      alert(`Eroare la creare proiect: ${error.message}`)
+    } else if (data) {
+      await supabase
+        .from('project_members')
+        .insert({ project_id: data.id, user_id: user.id, role: 'owner' })
+      await supabase
+        .from('files')
+        .insert({
+          project_id: data.id,
+          name: 'README.md',
+          language: 'markdown',
+          content: `# ${name}\n\nBun venit în proiectul tău iTECify!\n\n## Cum începi\n\n- Adaugă fișiere noi cu butonul **+** din sidebar\n- Rulează codul cu butonul **Run**\n- Invită colegi din meniul de utilizator (avatar sus-dreapta)\n`,
+        })
       setProjects(prev => [data, ...prev])
       setNewName('')
       setShowForm(false)
+      navigate('/editor', { state: { projectId: data.id } })
     }
     setCreating(false)
   }

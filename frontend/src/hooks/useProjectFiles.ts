@@ -158,7 +158,13 @@ export function useProjectFiles(externalProjectId?: string): UseProjectFilesRetu
           return
         }
 
-        // ── 4. Creează fișierele implicite (doar dacă nu există) ──────────────
+        // ── 4. Creează fișierele implicite — DOAR pentru proiectul auto-creat ──
+        if (externalProjectId) {
+          // Proiect deschis explicit — nu adăuga fișiere automat, lasă-l gol
+          if (!cancelled) { setFiles([]); setLoading(false) }
+          return
+        }
+
         const { data: createdFiles, error: createFilesErr } = await supabase
           .from('files')
           .insert(DEFAULT_FILES.map(f => ({ ...f, project_id: projectId })))
@@ -190,7 +196,10 @@ export function useProjectFiles(externalProjectId?: string): UseProjectFilesRetu
       .insert({ name, language, content, project_id: pid })
       .select('id, name, language')
       .single()
-    if (!insertErr && data) {
+    if (insertErr) {
+      console.error('[addFile] error:', insertErr)
+      alert(`Eroare la creare fișier: ${insertErr.message}`)
+    } else if (data) {
       setFiles(prev => [...prev, data])
     }
   }, [])

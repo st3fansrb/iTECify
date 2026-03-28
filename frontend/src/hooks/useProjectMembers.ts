@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import type { RealtimeChannel } from '@supabase/supabase-js'
 import supabase from '../lib/supabase'
 
 export interface ProjectMember {
@@ -10,12 +11,12 @@ export interface ProjectMember {
 
 export function useProjectMembers(projectId: string): ProjectMember[] {
   const [members, setMembers] = useState<ProjectMember[]>([])
+  const channelRef = useRef<RealtimeChannel | null>(null)
 
   useEffect(() => {
     if (!projectId) return
 
     const fetchMembers = async () => {
-      // Step 1: fetch members
       const { data: memberRows, error } = await supabase
         .from('project_members')
         .select('user_id, role')
@@ -26,8 +27,9 @@ export function useProjectMembers(projectId: string): ProjectMember[] {
         return
       }
 
-      // Step 2: fetch profiles for those users
       const userIds = memberRows.map(r => r.user_id)
+      if (userIds.length === 0) { setMembers([]); return }
+
       const { data: profileRows } = await supabase
         .from('profiles')
         .select('id, display_name, avatar_color')
@@ -49,6 +51,23 @@ export function useProjectMembers(projectId: string): ProjectMember[] {
     }
 
     void fetchMembers()
+
+    // Realtime — re-fetch when project_members changes
+    const channel = supabase
+      .channel(`project-members-${projectId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'project_members', filter: `project_id=eq.${projectId}` },
+        () => { void fetchMembers() }
+      )
+      .subscribe()
+
+    channelRef.current = channel
+
+    return () => {
+      void supabase.removeChannel(channel)
+      channelRef.current = null
+    }
   }, [projectId])
 
   return members
