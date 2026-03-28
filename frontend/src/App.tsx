@@ -113,8 +113,6 @@ function RealtimeEditor({
   // Expose saveSnapshotNow to parent so TimeTravel can trigger it on open
   useEffect(() => { onSaveSnapshotNow?.(saveSnapshotNow) }, [saveSnapshotNow, onSaveSnapshotNow])
 
-  const isTimeTraveling = timeTravelContent !== null
-
   if (loading) return (
     <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(249,168,212,0.5)', fontFamily: 'monospace', fontSize: '13px' }}>
       Loading file…
