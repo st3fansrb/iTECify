@@ -108,6 +108,9 @@
   - creat `hooks/usePersonalTerminal.ts` — state local pur, fără Supabase, expune personalOutputs/addPersonalEntry/clearPersonalOutputs
   - `TerminalOutput.tsx`: adăugat tabs Shared/My Terminal în header; personal tab afișează TerminalEntry[] cu culori per tip; Clear șterge tab-ul activ
   - `App.tsx`: integrat usePersonalTerminal, addPersonalEntry apelat la fiecare event SSE (command/stdout/stderr/error/exit), props noi pasate la TerminalOutput
+* [x] **[2026-03-28] UI — HomePage: titlu iTECify revert la original:**
+  - Eliminat `@import Audiowide` din `index.css`, eliminat `import logoSrc` din HomePage.tsx
+  - H1 restaurat: `fontSize:64px fontWeight:800 gradient #fff→#f9a8d4→#d8b4fe`, text simplu `iTECify`
 * [x] **[2026-03-28] UI — KonamiExplosion: layout vertical (imagine→text→buton) + animații cat:**
   - Layout refăcut: coloană flexbox centrată `flexDirection:column alignItems:center` — imagine sus → ACCESS GRANTED → subtitle → buton
   - Imagine `cat-access.png`: `marginBottom:24px`, animații combinate: `cat-appear 0.6s ease-out` (fade-in + scale 0.5→1), `cat-float 3s infinite` (translateY ±10px), `cat-glow-pulse 2s infinite` (box-shadow 0.4→0.8 opacity)
