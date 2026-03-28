@@ -61,8 +61,8 @@ const ORBS = (
 
 // ── Inner component that holds realtime state for the active file ──────────────
 function RealtimeEditor({
-  fileId, projectId, language, onCodeChange, onUsersChange, timeTravelContent, currentUserId, onEditorMount,
-}: { fileId: string; projectId?: string; language: string; onCodeChange: (code: string) => void; onUsersChange: (users: ConnectedUser[]) => void; timeTravelContent: string | null; currentUserId?: string | null; onEditorMount?: (editor: import('monaco-editor').editor.IStandaloneCodeEditor) => void }) {
+  fileId, projectId, language, onCodeChange, onUsersChange, timeTravelContent, currentUserId, onEditorMount, onSaveSnapshotNow,
+}: { fileId: string; projectId?: string; language: string; onCodeChange: (code: string) => void; onUsersChange: (users: ConnectedUser[]) => void; timeTravelContent: string | null; currentUserId?: string | null; onEditorMount?: (editor: import('monaco-editor').editor.IStandaloneCodeEditor) => void; onSaveSnapshotNow?: (fn: () => Promise<void>) => void }) {
   const { code, updateCode, updateCursor, loading, isSaving, connectedUsers } = useRealtimeEditor({
     projectId,
     fileId,
@@ -90,13 +90,29 @@ function RealtimeEditor({
   }, [saveSnapshot, currentUserId])
   useEffect(() => () => { if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current) }, [])
 
+  const isTimeTraveling = timeTravelContent !== null
+
   const handleChange = (val: string) => {
+    if (isTimeTraveling) return   // guard: ignore Monaco events during read-only preview
     updateCode(val)
     onCodeChange(val)
     scheduleSnapshot(val)
   }
 
-  const isTimeTraveling = timeTravelContent !== null
+  // Always keep codeRef up to date for saveSnapshotNow
+  const codeRef = useRef(code)
+  codeRef.current = code
+
+  const saveSnapshotNow = useCallback(async () => {
+    const current = codeRef.current
+    if (current.trim() && current !== lastSavedCodeRef.current) {
+      await saveSnapshot(current, currentUserId ?? null)
+      lastSavedCodeRef.current = current
+    }
+  }, [saveSnapshot, currentUserId])
+
+  // Expose saveSnapshotNow to parent so TimeTravel can trigger it on open
+  useEffect(() => { onSaveSnapshotNow?.(saveSnapshotNow) }, [saveSnapshotNow, onSaveSnapshotNow])
 
   if (loading) return (
     <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(249,168,212,0.5)', fontFamily: 'monospace', fontSize: '13px' }}>
@@ -164,6 +180,9 @@ function EditorPage({ externalProjectId, onProjectName }: { externalProjectId?: 
   const toastShownRef = useRef(false)
   const lastCodeRef = useRef('')
   const monacoEditorRef = useRef<import('monaco-editor').editor.IStandaloneCodeEditor | null>(null)
+  const saveSnapshotNowRef = useRef<(() => Promise<void>) | null>(null)
+  const preTimeTravelCodeRef = useRef('')
+  const isRestoringRef = useRef(false)
   const { user, session, signOut } = useAuth()
   const [timeTravelContent, setTimeTravelContent] = useState<string | null>(null)
   const [userProjects, setUserProjects] = useState<Array<{ id: string; name: string }>>([])
@@ -579,6 +598,7 @@ function EditorPage({ externalProjectId, onProjectName }: { externalProjectId?: 
                 timeTravelContent={timeTravelContent}
                 currentUserId={user?.id}
                 onEditorMount={(editor) => { monacoEditorRef.current = editor }}
+                onSaveSnapshotNow={(fn) => { saveSnapshotNowRef.current = fn }}
               />
             ) : (
               <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -612,10 +632,28 @@ function EditorPage({ externalProjectId, onProjectName }: { externalProjectId?: 
         {activeFileId && (
           <TimeTravel
             fileId={activeFileId}
-            onPreview={setTimeTravelContent}
+            onPreview={async (content) => {
+              if (content !== null && timeTravelContent === null) {
+                // Entering Time Travel — save current code as snapshot + remember exact state
+                preTimeTravelCodeRef.current = lastCodeRef.current
+                await saveSnapshotNowRef.current?.()
+              }
+              if (content === null) {
+                setTimeTravelContent(null)
+                // Only restore pre-TT code if this exit wasn't triggered by Restore
+                if (!isRestoringRef.current) {
+                  setTimeout(() => { monacoEditorRef.current?.setValue(preTimeTravelCodeRef.current) }, 0)
+                }
+                isRestoringRef.current = false
+              } else {
+                setTimeTravelContent(content)
+              }
+            }}
             onRestore={(content) => {
+              isRestoringRef.current = true
               lastCodeRef.current = content
               setTimeTravelContent(null)
+              setTimeout(() => { monacoEditorRef.current?.setValue(content) }, 0)
             }}
           />
         )}
