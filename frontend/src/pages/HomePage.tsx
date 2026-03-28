@@ -140,7 +140,7 @@ export default function HomePage() {
 
         {/* Navbar */}
         <nav style={{
-          position: 'relative', zIndex: 10,
+          position: 'relative', zIndex: 99999,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: '20px 48px',
           borderBottom: '1px solid rgba(255,255,255,0.06)',
@@ -181,7 +181,7 @@ export default function HomePage() {
               {openDropdown === 'contact' && (
                 <div style={{
                   position: 'absolute', top: 'calc(100% + 4px)', right: 0,
-                  minWidth: '320px', zIndex: 99999,
+                  minWidth: '320px', zIndex: 999999,
                   maxHeight: '350px', overflowY: 'auto',
                   scrollbarWidth: 'thin', scrollbarColor: '#f472b6 transparent',
                   background: 'rgba(8,4,25,0.98)',
@@ -233,7 +233,7 @@ export default function HomePage() {
               {openDropdown === 'about' && (
                 <div style={{
                   position: 'absolute', top: 'calc(100% + 4px)', right: 0,
-                  minWidth: '320px', zIndex: 99999,
+                  minWidth: '320px', zIndex: 999999,
                   maxHeight: '350px', overflowY: 'auto',
                   scrollbarWidth: 'thin', scrollbarColor: '#f472b6 transparent',
                   background: 'rgba(8,4,25,0.98)',
@@ -295,14 +295,14 @@ export default function HomePage() {
           const allItems = [...LANGS, ...LANGS]
           return (
             <div style={{
-              borderTop: '1px solid rgba(255,255,255,0.06)',
-              borderBottom: '1px solid rgba(255,255,255,0.06)',
-              background: 'rgba(0,0,0,0.2)',
-              backdropFilter: 'blur(8px)',
+              borderTop: '1px solid rgba(255,255,255,0.05)',
+              borderBottom: '1px solid rgba(255,255,255,0.05)',
+              background: 'rgba(0,0,0,0.4)',
+              backdropFilter: 'blur(5px)',
               overflow: 'hidden',
               width: '100%',
               padding: '10px 0',
-              position: 'relative', zIndex: 10,
+              position: 'relative', zIndex: 1,
             }}>
               <div style={{
                 display: 'flex',
@@ -312,11 +312,11 @@ export default function HomePage() {
                 {allItems.map((lang, i) => (
                   <span key={i} style={{
                     flexShrink: 0, whiteSpace: 'nowrap',
-                    fontFamily: 'monospace', fontSize: '12px',
-                    color: 'rgba(255,255,255,0.35)', letterSpacing: '0.08em',
+                    fontFamily: 'monospace', fontSize: '11px',
+                    color: 'rgba(255,255,255,0.25)', letterSpacing: '0.08em',
                     padding: '0 28px',
                   }}>
-                    <span style={{ color: 'rgba(249,168,212,0.5)', marginRight: '28px' }}>✦</span>
+                    <span style={{ color: 'rgba(255,255,255,0.15)', marginRight: '28px' }}>·</span>
                     {lang}
                   </span>
                 ))}

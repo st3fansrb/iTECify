@@ -23,6 +23,8 @@
 * [x] Fix — HomePage: import blob revenит la blob.png (un coleg îl schimbase în hero.png, cauzând dispariția animației de fundal)
 * [x] UI — HomePage navbar: butoane Contact + About Us cu dropdownuri glassmorphism (close on outside click, animatie dropdown-in)
 * [x] UI — Dropdownuri navbar: onMouseLeave pe wrapper (nu click afară), zIndex 99999, bg rgba(8,4,25,0.98), text #ffffff, scrollbar roz, max-height 350px
+* [x] UI — Marquee banner: text rgba(255,255,255,0.25), bg rgba(0,0,0,0.4) blur(5px), font 11px, separator · , border subtil 0.05
+* [x] Fix — zIndex layering: navbar 99999, marquee 1, dropdownuri 999999
 
 ## ❌ Erori Întâlnite și Încercări Eșuate
 *(Când primești o eroare, documentează abordarea greșită aici pentru a nu o repeta)*
