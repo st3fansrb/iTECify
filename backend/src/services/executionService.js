@@ -45,6 +45,11 @@ async function executeCode(language, code) {
         Binds: [`${execDir}:/sandbox:ro`],
         NetworkMode: 'none',
         Memory: 50 * 1024 * 1024,
+        MemorySwap: 50 * 1024 * 1024,   // fără swap suplimentar
+        NanoCpus: 500000000,             // 0.5 CPU cores
+        PidsLimit: 50,                   // anti fork bomb
+        OomKillDisable: false,           // permite OOM killer
+        ReadonlyRootfs: true,
         AutoRemove: false,
       },
     });

@@ -1,53 +1,96 @@
-// CRUD helpers for the `sessions` table.
-// Used exclusively by hooks — components must NOT import supabase directly.
+// Project session API — create rooms, join via invite code, list user projects.
+// Components must NOT import supabase directly — use these helpers or hooks.
 
 import supabase from './supabase'
-import type { Session, Language } from './database.types'
 
-/** Create a new session. `created_by` is injected by Supabase RLS (auth.uid()). */
-export async function createSession(name: string, language: Language): Promise<Session> {
-  const { data, error } = await supabase
-    .from('sessions')
-    .insert({ name, language, code: '' })
-    .select()
+export interface ProjectSession {
+  projectId: string
+  inviteCode: string
+}
+
+export interface UserProject {
+  project_id: string
+  role: string
+  projects: {
+    id: string
+    name: string
+    invite_code: string
+    created_at: string
+  }
+}
+
+const DEFAULT_FILES = [
+  { name: 'main.js',  language: 'javascript', content: '// Start coding here\nconsole.log("Hello iTECify!");' },
+  { name: 'main.py',  language: 'python',     content: '# Start coding here\nprint("Hello iTECify!")' },
+  { name: 'main.rs',  language: 'rust',       content: 'fn main() {\n    println!("Hello iTECify!");\n}' },
+]
+
+/** Create a new project room. Adds owner as member and seeds 3 default files. */
+export async function createSession(name = 'New Room'): Promise<ProjectSession> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('createSession: not authenticated')
+
+  const inviteCode = crypto.randomUUID()
+
+  // 1. Create project
+  const { data: project, error: projectErr } = await supabase
+    .from('projects')
+    .insert({ name, owner_id: user.id, invite_code: inviteCode })
+    .select('id')
     .single()
+  if (projectErr || !project) throw new Error(`createSession: ${projectErr?.message}`)
 
-  if (error) throw new Error(`createSession: ${error.message}`)
-  return data
+  const projectId = project.id
+
+  // 2. Add owner as member
+  const { error: memberErr } = await supabase
+    .from('project_members')
+    .insert({ project_id: projectId, user_id: user.id, role: 'owner' })
+  if (memberErr) throw new Error(`createSession (member): ${memberErr.message}`)
+
+  // 3. Seed default files
+  const { error: filesErr } = await supabase
+    .from('files')
+    .insert(DEFAULT_FILES.map(f => ({ ...f, project_id: projectId })))
+  if (filesErr) throw new Error(`createSession (files): ${filesErr.message}`)
+
+  return { projectId, inviteCode }
 }
 
-/** Fetch a single session by id. Throws if not found. */
-export async function getSession(id: string): Promise<Session> {
-  const { data, error } = await supabase
-    .from('sessions')
-    .select()
-    .eq('id', id)
+/** Join an existing project via invite code. Returns the projectId. */
+export async function joinSession(inviteCode: string): Promise<string> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('joinSession: not authenticated')
+
+  // 1. Find project by invite code
+  const { data: project, error: findErr } = await supabase
+    .from('projects')
+    .select('id')
+    .eq('invite_code', inviteCode)
     .single()
+  if (findErr || !project) throw new Error('joinSession: invalid invite code')
 
-  if (error) throw new Error(`getSession: ${error.message}`)
-  return data
+  // 2. Add user as member (ignore duplicate — already a member)
+  const { error: memberErr } = await supabase
+    .from('project_members')
+    .insert({ project_id: project.id, user_id: user.id, role: 'member' })
+
+  // UNIQUE constraint violation (already a member) is acceptable
+  if (memberErr && !memberErr.message.includes('duplicate') && !memberErr.code?.includes('23505')) {
+    throw new Error(`joinSession: ${memberErr.message}`)
+  }
+
+  return project.id
 }
 
-/**
- * Persist the latest code to DB.
- * Called debounced from useRealtimeCode — not on every keystroke.
- */
-export async function updateSessionCode(id: string, code: string): Promise<void> {
-  const { error } = await supabase
-    .from('sessions')
-    .update({ code, updated_at: new Date().toISOString() })
-    .eq('id', id)
-
-  if (error) throw new Error(`updateSessionCode: ${error.message}`)
-}
-
-/** List all sessions, newest first — for the session picker UI. */
-export async function listSessions(): Promise<Session[]> {
+/** Returns all projects the user is a member of (owned + joined). */
+export async function getUserProjects(userId: string): Promise<UserProject[]> {
   const { data, error } = await supabase
-    .from('sessions')
-    .select()
-    .order('created_at', { ascending: false })
+    .from('project_members')
+    .select('project_id, role, projects(id, name, invite_code, created_at)')
+    .eq('user_id', userId)
+    .order('project_id')
 
-  if (error) throw new Error(`listSessions: ${error.message}`)
-  return data ?? []
+  if (error) throw new Error(`getUserProjects: ${error.message}`)
+  return (data ?? []) as UserProject[]
 }
