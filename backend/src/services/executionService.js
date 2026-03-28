@@ -52,13 +52,13 @@ async function executeWithDocker(language, code) {
       Cmd: runner.cmd,
       HostConfig: {
         Binds: [`${execDir}:/sandbox:ro`],
+        Tmpfs: { '/tmp': 'size=64m,exec' },  // Rust/Java compilează în /tmp
         NetworkMode: 'none',
         Memory: 50 * 1024 * 1024,
         MemorySwap: 50 * 1024 * 1024,
         NanoCpus: 500000000,
         PidsLimit: 50,
         OomKillDisable: false,
-        ReadonlyRootfs: true,
         AutoRemove: false,
       },
     });
@@ -71,6 +71,9 @@ async function executeWithDocker(language, code) {
     let stdoutData = '', stderrData = '';
     stdoutPass.on('data', chunk => { stdoutData += chunk.toString('utf8'); });
     stderrPass.on('data', chunk => { stderrData += chunk.toString('utf8'); });
+    stdoutPass.on('error', err => { console.error('[docker] stdout error:', err.message); });
+    stderrPass.on('error', err => { console.error('[docker] stderr error:', err.message); });
+    logStream.on('error', err => { console.error('[docker] log stream error:', err.message); });
 
     await container.start();
 
