@@ -15,6 +15,10 @@ interface AIBlockProps {
   language: string
   terminalHeight?: number
   terminalCollapsed?: boolean
+  /** Returns selected code in the editor, or full code if nothing selected. */
+  getSelectedCode?: () => string
+  /** Inserts/replaces code at the current editor selection. */
+  insertCode?: (code: string) => void
 }
 
 interface Message {
@@ -22,7 +26,7 @@ interface Message {
   text: string
 }
 
-export default function AIBlock({ currentCode, language, terminalHeight = 192, terminalCollapsed = false }: AIBlockProps) {
+export default function AIBlock({ currentCode, language, terminalHeight = 192, terminalCollapsed = false, getSelectedCode, insertCode }: AIBlockProps) {
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -35,12 +39,8 @@ export default function AIBlock({ currentCode, language, terminalHeight = 192, t
     setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
   }
 
-  const handleSubmit = useCallback(async (e: React.FormEvent) => {
-    e.preventDefault()
-    const prompt = input.trim()
-    if (!prompt || loading) return
-
-    setInput('')
+  const sendPrompt = useCallback(async (prompt: string, code: string) => {
+    setOpen(true)
     const userMsg: Message = { role: 'user', text: prompt }
     setMessages(prev => [...prev, userMsg])
     setLoading(true)
@@ -53,11 +53,13 @@ export default function AIBlock({ currentCode, language, terminalHeight = 192, t
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session?.access_token}`,
         },
-        body: JSON.stringify({ prompt, code: currentCode, language }),
+        body: JSON.stringify({ prompt, code, language }),
       })
       const data = await res.json()
       const reply = data.generatedCode ?? data.error ?? 'No response from AI.'
       setMessages(prev => [...prev, { role: 'assistant', text: reply }])
+      // Auto-insert into editor — Accept/Reject banner will appear
+      insertCode?.(reply)
     } catch {
       setMessages(prev => [...prev, { role: 'assistant', text: 'Could not reach AI backend.' }])
     } finally {
@@ -65,7 +67,28 @@ export default function AIBlock({ currentCode, language, terminalHeight = 192, t
       scrollToBottom()
       setTimeout(() => inputRef.current?.focus(), 100)
     }
-  }, [input, loading, currentCode, language])
+  }, [language, session])
+
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault()
+    const prompt = input.trim()
+    if (!prompt || loading) return
+    setInput('')
+    const code = getSelectedCode ? getSelectedCode() : currentCode
+    await sendPrompt(prompt, code)
+  }, [input, loading, currentCode, getSelectedCode, sendPrompt])
+
+  const handleDebug = useCallback(() => {
+    if (loading) return
+    const code = getSelectedCode ? getSelectedCode() : currentCode
+    sendPrompt(`Debug the following ${language} code. Identify any errors or issues and explain how to fix them:\n\n${code}`, code)
+  }, [loading, getSelectedCode, currentCode, language, sendPrompt])
+
+  const handleRefactor = useCallback(() => {
+    if (loading) return
+    const code = getSelectedCode ? getSelectedCode() : currentCode
+    sendPrompt(`Refactor the following ${language} code to improve readability, performance, and best practices. Return only the refactored code:\n\n${code}`, code)
+  }, [loading, getSelectedCode, currentCode, language, sendPrompt])
 
   return (
     <>
@@ -115,11 +138,40 @@ export default function AIBlock({ currentCode, language, terminalHeight = 192, t
               ✦ AI ASSISTANT
             </span>
             <span style={{
-              marginLeft: 'auto', fontSize: '10px', color: 'rgba(255,255,255,0.2)',
-              fontFamily: 'monospace', marginRight: '18px',
+              fontSize: '10px', color: 'rgba(255,255,255,0.2)',
+              fontFamily: 'monospace',
             }}>
               {language}
             </span>
+            {/* Quick action buttons */}
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: '4px', marginRight: '20px' }}>
+              <button
+                onClick={handleDebug}
+                disabled={loading}
+                title="Debug selected/full code"
+                style={{
+                  padding: '2px 8px', fontSize: '10px', fontFamily: 'monospace', fontWeight: 600,
+                  background: 'rgba(248,113,113,0.15)', border: '1px solid rgba(248,113,113,0.3)',
+                  borderRadius: '4px', color: '#f87171', cursor: loading ? 'not-allowed' : 'pointer',
+                  opacity: loading ? 0.4 : 1, transition: 'opacity 0.2s',
+                }}
+              >
+                Debug
+              </button>
+              <button
+                onClick={handleRefactor}
+                disabled={loading}
+                title="Refactor selected/full code"
+                style={{
+                  padding: '2px 8px', fontSize: '10px', fontFamily: 'monospace', fontWeight: 600,
+                  background: 'rgba(52,211,153,0.15)', border: '1px solid rgba(52,211,153,0.3)',
+                  borderRadius: '4px', color: '#34d399', cursor: loading ? 'not-allowed' : 'pointer',
+                  opacity: loading ? 0.4 : 1, transition: 'opacity 0.2s',
+                }}
+              >
+                Refactor
+              </button>
+            </div>
             <button
               onClick={() => setOpen(false)}
               title="Close"
@@ -167,21 +219,27 @@ export default function AIBlock({ currentCode, language, terminalHeight = 192, t
             {messages.map((m, i) => (
               <div key={i} style={{
                 alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
-                maxWidth: '85%',
-                background: m.role === 'user'
-                  ? 'rgba(249,168,212,0.15)'
-                  : 'rgba(255,255,255,0.05)',
-                border: `1px solid ${m.role === 'user' ? 'rgba(249,168,212,0.25)' : 'rgba(255,255,255,0.08)'}`,
-                borderRadius: m.role === 'user' ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
-                padding: '8px 12px',
-                fontSize: '12px',
-                lineHeight: 1.6,
-                color: m.role === 'user' ? '#f9a8d4' : 'rgba(220,220,230,0.85)',
-                fontFamily: 'monospace',
-                whiteSpace: 'pre-wrap',
-                wordBreak: 'break-word',
+                maxWidth: '90%',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '4px',
               }}>
-                {m.text}
+                <div style={{
+                  background: m.role === 'user'
+                    ? 'rgba(249,168,212,0.15)'
+                    : 'rgba(255,255,255,0.05)',
+                  border: `1px solid ${m.role === 'user' ? 'rgba(249,168,212,0.25)' : 'rgba(255,255,255,0.08)'}`,
+                  borderRadius: m.role === 'user' ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
+                  padding: '8px 12px',
+                  fontSize: '12px',
+                  lineHeight: 1.6,
+                  color: m.role === 'user' ? '#f9a8d4' : 'rgba(220,220,230,0.85)',
+                  fontFamily: 'monospace',
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                }}>
+                  {m.text}
+                </div>
               </div>
             ))}
             {loading && (

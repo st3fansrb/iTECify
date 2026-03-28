@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { useFileHistory } from './hooks/useFileHistory'
 import Sidebar from './components/Sidebar'
 import CodeEditor from './components/CodeEditor'
 import TerminalOutput from './components/TerminalOutput'
@@ -60,13 +61,14 @@ const ORBS = (
 
 // ── Inner component that holds realtime state for the active file ──────────────
 function RealtimeEditor({
-  fileId, projectId, language, onCodeChange, onUsersChange, timeTravelContent, currentUserId,
-}: { fileId: string; projectId?: string; language: string; onCodeChange: (code: string) => void; onUsersChange: (users: ConnectedUser[]) => void; timeTravelContent: string | null; currentUserId?: string | null }) {
+  fileId, projectId, language, onCodeChange, onUsersChange, timeTravelContent, currentUserId, onEditorMount, onSaveSnapshotNow,
+}: { fileId: string; projectId?: string; language: string; onCodeChange: (code: string) => void; onUsersChange: (users: ConnectedUser[]) => void; timeTravelContent: string | null; currentUserId?: string | null; onEditorMount?: (editor: import('monaco-editor').editor.IStandaloneCodeEditor) => void; onSaveSnapshotNow?: (fn: () => Promise<void>) => void }) {
   const { code, updateCode, updateCursor, loading, isSaving, connectedUsers } = useRealtimeEditor({
     projectId,
     fileId,
     initialContent: '',
   })
+  const { saveSnapshot } = useFileHistory(fileId)
 
   // Propagate connected users up to EditorPage
   useEffect(() => { onUsersChange(connectedUsers) }, [connectedUsers, onUsersChange])
@@ -74,12 +76,43 @@ function RealtimeEditor({
   // Propagate initial loaded code so Run works without typing first
   useEffect(() => { if (!loading && code) onCodeChange(code) }, [loading])
 
-  const handleChange = (val: string) => {
-    updateCode(val)
-    onCodeChange(val)
-  }
+  // Auto-save snapshot after 30s of inactivity
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lastSavedCodeRef = useRef<string>('')
+  const scheduleSnapshot = useCallback((val: string) => {
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
+    autoSaveTimerRef.current = setTimeout(async () => {
+      if (val.trim() && val !== lastSavedCodeRef.current) {
+        await saveSnapshot(val, currentUserId ?? null)
+        lastSavedCodeRef.current = val
+      }
+    }, 10_000)
+  }, [saveSnapshot, currentUserId])
+  useEffect(() => () => { if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current) }, [])
 
   const isTimeTraveling = timeTravelContent !== null
+
+  const handleChange = (val: string) => {
+    if (isTimeTraveling) return   // guard: ignore Monaco events during read-only preview
+    updateCode(val)
+    onCodeChange(val)
+    scheduleSnapshot(val)
+  }
+
+  // Always keep codeRef up to date for saveSnapshotNow
+  const codeRef = useRef(code)
+  codeRef.current = code
+
+  const saveSnapshotNow = useCallback(async () => {
+    const current = codeRef.current
+    if (current.trim() && current !== lastSavedCodeRef.current) {
+      await saveSnapshot(current, currentUserId ?? null)
+      lastSavedCodeRef.current = current
+    }
+  }, [saveSnapshot, currentUserId])
+
+  // Expose saveSnapshotNow to parent so TimeTravel can trigger it on open
+  useEffect(() => { onSaveSnapshotNow?.(saveSnapshotNow) }, [saveSnapshotNow, onSaveSnapshotNow])
 
   if (loading) return (
     <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(249,168,212,0.5)', fontFamily: 'monospace', fontSize: '13px' }}>
@@ -118,6 +151,7 @@ function RealtimeEditor({
         onCursorChange={isTimeTraveling ? undefined : updateCursor}
         readOnly={isTimeTraveling}
         currentUserId={currentUserId}
+        onEditorMount={onEditorMount}
       />
     </div>
   )
@@ -145,9 +179,15 @@ function EditorPage({ externalProjectId, onProjectName }: { externalProjectId?: 
   const personalCodeMap = useRef<Map<string, string>>(new Map())
   const toastShownRef = useRef(false)
   const lastCodeRef = useRef('')
+  const monacoEditorRef = useRef<import('monaco-editor').editor.IStandaloneCodeEditor | null>(null)
+  const saveSnapshotNowRef = useRef<(() => Promise<void>) | null>(null)
+  const preTimeTravelCodeRef = useRef('')
+  const isRestoringRef = useRef(false)
   const { user, session, signOut } = useAuth()
   const [timeTravelContent, setTimeTravelContent] = useState<string | null>(null)
   const [userProjects, setUserProjects] = useState<Array<{ id: string; name: string }>>([])
+  const [aiPendingInsert, setAiPendingInsert] = useState<{ decorationIds: string[]; preInsertContent: string } | null>(null)
+  const aiDecorationIdsRef = useRef<string[]>([])
 
   useEffect(() => {
     if (!user?.id) return
@@ -546,6 +586,55 @@ function EditorPage({ externalProjectId, onProjectName }: { externalProjectId?: 
             )}
         </div>
 
+        {/* AI Insert banner */}
+        {aiPendingInsert && (
+          <div style={{
+            flexShrink: 0,
+            display: 'flex', alignItems: 'center', gap: '10px',
+            padding: '6px 16px',
+            background: 'rgba(139,92,246,0.1)',
+            borderBottom: '1px solid rgba(139,92,246,0.3)',
+            fontSize: '11px', fontFamily: 'monospace',
+            animation: 'ai-slide-in 0.2s ease both',
+          }}>
+            <span style={{ color: '#a78bfa', letterSpacing: '0.06em' }}>✦ AI-generated code</span>
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: '6px' }}>
+            <button
+              onClick={() => {
+                // Accept — keep code and highlight, just close banner
+                setAiPendingInsert(null)
+              }}
+              style={{
+                padding: '2px 10px', fontSize: '11px', fontWeight: 700, fontFamily: 'monospace',
+                background: 'rgba(52,211,153,0.2)', border: '1px solid rgba(52,211,153,0.5)',
+                borderRadius: '5px', color: '#34d399', cursor: 'pointer',
+              }}
+            >✓ Accept</button>
+            <button
+              onClick={() => {
+                // Reject — restore pre-insert content and clear decorations
+                const editor = monacoEditorRef.current
+                if (editor) {
+                  const model = editor.getModel()
+                  if (model) {
+                    const fullRange = model.getFullModelRange()
+                    editor.executeEdits('ai-reject', [{ range: fullRange, text: aiPendingInsert.preInsertContent }])
+                  }
+                  editor.deltaDecorations(aiDecorationIdsRef.current, [])
+                  aiDecorationIdsRef.current = []
+                }
+                setAiPendingInsert(null)
+              }}
+              style={{
+                padding: '2px 10px', fontSize: '11px', fontWeight: 700, fontFamily: 'monospace',
+                background: 'rgba(248,113,113,0.15)', border: '1px solid rgba(248,113,113,0.4)',
+                borderRadius: '5px', color: '#f87171', cursor: 'pointer',
+              }}
+            >✕ Reject</button>
+            </div>
+          </div>
+        )}
+
         {/* Editor area */}
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           {activeFileId && activeFile ? (
@@ -559,6 +648,33 @@ function EditorPage({ externalProjectId, onProjectName }: { externalProjectId?: 
                 onUsersChange={setConnectedUsers}
                 timeTravelContent={timeTravelContent}
                 currentUserId={user?.id}
+                onEditorMount={(editor) => {
+                  monacoEditorRef.current = editor
+                  editor.onDidChangeModelContent((event) => {
+                    if (aiDecorationIdsRef.current.length === 0) return
+                    const model = editor.getModel()
+                    if (!model) return
+                    // Find which AI decoration IDs overlap with the changed lines
+                    const idsToRemove: string[] = []
+                    for (const change of event.changes) {
+                      const changedStart = change.range.startLineNumber
+                      const changedEnd = change.range.endLineNumber
+                      for (const id of aiDecorationIdsRef.current) {
+                        const decorRange = model.getDecorationRange(id)
+                        if (!decorRange) continue
+                        if (decorRange.startLineNumber <= changedEnd && decorRange.endLineNumber >= changedStart) {
+                          idsToRemove.push(id)
+                        }
+                      }
+                    }
+                    if (idsToRemove.length === 0) return
+                    editor.deltaDecorations(idsToRemove, [])
+                    const remaining = aiDecorationIdsRef.current.filter(id => !idsToRemove.includes(id))
+                    aiDecorationIdsRef.current = remaining
+                    if (remaining.length === 0) setAiPendingInsert(null)
+                  })
+                }}
+                onSaveSnapshotNow={(fn) => { saveSnapshotNowRef.current = fn }}
               />
             ) : (
               <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -592,10 +708,28 @@ function EditorPage({ externalProjectId, onProjectName }: { externalProjectId?: 
         {activeFileId && (
           <TimeTravel
             fileId={activeFileId}
-            onPreview={setTimeTravelContent}
+            onPreview={async (content) => {
+              if (content !== null && timeTravelContent === null) {
+                // Entering Time Travel — save current code as snapshot + remember exact state
+                preTimeTravelCodeRef.current = lastCodeRef.current
+                await saveSnapshotNowRef.current?.()
+              }
+              if (content === null) {
+                setTimeTravelContent(null)
+                // Only restore pre-TT code if this exit wasn't triggered by Restore
+                if (!isRestoringRef.current) {
+                  setTimeout(() => { monacoEditorRef.current?.setValue(preTimeTravelCodeRef.current) }, 0)
+                }
+                isRestoringRef.current = false
+              } else {
+                setTimeTravelContent(content)
+              }
+            }}
             onRestore={(content) => {
+              isRestoringRef.current = true
               lastCodeRef.current = content
               setTimeTravelContent(null)
+              setTimeout(() => { monacoEditorRef.current?.setValue(content) }, 0)
             }}
           />
         )}
@@ -645,7 +779,44 @@ function EditorPage({ externalProjectId, onProjectName }: { externalProjectId?: 
         </div>
       </div>
 
-      <AIBlock currentCode={lastCodeRef.current} language={activeFile?.language ?? 'plaintext'} terminalHeight={terminalHeight} terminalCollapsed={terminalCollapsed} />
+      <AIBlock
+        currentCode={lastCodeRef.current}
+        language={activeFile?.language ?? 'plaintext'}
+        terminalHeight={terminalHeight}
+        terminalCollapsed={terminalCollapsed}
+        getSelectedCode={() => {
+          const editor = monacoEditorRef.current
+          if (!editor) return lastCodeRef.current
+          const selection = editor.getSelection()
+          if (!selection || selection.isEmpty()) return lastCodeRef.current
+          return editor.getModel()?.getValueInRange(selection) ?? lastCodeRef.current
+        }}
+        insertCode={(code: string) => {
+          const editor = monacoEditorRef.current
+          if (!editor) return
+          const preInsertContent = editor.getValue()
+          const selection = editor.getSelection()
+          const range = selection ?? { startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 1 }
+          editor.executeEdits('ai-insert', [{ range, text: code }])
+
+          // Calculate inserted line range
+          const startLine = range.startLineNumber
+          const insertedLineCount = code.split('\n').length
+          const endLine = startLine + insertedLineCount - 1
+
+          // Clear previous AI decorations, apply new ones
+          const oldIds = aiDecorationIdsRef.current
+          const newIds = editor.deltaDecorations(oldIds,
+            Array.from({ length: endLine - startLine + 1 }, (_, i) => ({
+              range: { startLineNumber: startLine + i, startColumn: 1, endLineNumber: startLine + i, endColumn: 1 },
+              options: { isWholeLine: true, className: 'ai-inserted-line', linesDecorationsClassName: 'ai-inserted-glyph' },
+            }))
+          )
+          aiDecorationIdsRef.current = newIds
+          setAiPendingInsert({ decorationIds: newIds, preInsertContent })
+          editor.focus()
+        }}
+      />
 
       {toast && (
         <div style={{
@@ -668,6 +839,14 @@ function EditorPage({ externalProjectId, onProjectName }: { externalProjectId?: 
         @keyframes toast-in {
           from { opacity: 0; transform: translateX(40px); }
           to   { opacity: 1; transform: translateX(0); }
+        }
+        .ai-inserted-line {
+          background: rgba(139,92,246,0.13) !important;
+        }
+        .ai-inserted-glyph {
+          background: #8b5cf6 !important;
+          width: 3px !important;
+          margin-left: 3px;
         }
       `}</style>
     </div>
