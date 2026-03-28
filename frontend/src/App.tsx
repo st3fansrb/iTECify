@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useState, useEffect, useRef } from 'react'
 import Sidebar from './components/Sidebar'
 import CodeEditor from './components/CodeEditor'
@@ -10,8 +10,10 @@ import KonamiExplosion from './components/KonamiExplosion'
 import { useKonamiCode } from './hooks/useKonamiCode'
 import { useAuth } from './hooks/useAuth'
 import { useProjectFiles } from './hooks/useProjectFiles'
+import { useProjectMembers } from './hooks/useProjectMembers'
 import { useRealtimeEditor, type ConnectedUser } from './hooks/useRealtimeEditor'
 import { useSharedTerminal } from './hooks/useSharedTerminal'
+import { usePersonalTerminal } from './hooks/usePersonalTerminal'
 import ConnectedUsers from './components/ConnectedUsers'
 import UserMenu from './components/UserMenu'
 import AIBlock from './components/AIBlock'
@@ -31,8 +33,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 const BG_STYLE: React.CSSProperties = {
   display: 'flex',
-  height: '100vh',
-  width: '100vw',
+  flex: 1,
   overflow: 'hidden',
   color: 'white',
   position: 'relative',
@@ -121,17 +122,26 @@ function RealtimeEditor({
   )
 }
 
-function EditorPage() {
-  const { files, loading: filesLoading, addFile, projectId } = useProjectFiles()
+function EditorPage({ externalProjectId, onProjectName }: { externalProjectId?: string; onProjectName?: (name: string) => void }) {
+  const navigate = useNavigate()
+  const { files, loading: filesLoading, addFile, restoreDefaults, projectId, projectName } = useProjectFiles(externalProjectId)
   const { outputs, broadcast, clearOutputs } = useSharedTerminal(projectId)
+  const { personalOutputs, addPersonalEntry, clearPersonalOutputs } = usePersonalTerminal()
+  const members = useProjectMembers(projectId)
+
 
   const [activeFileId, setActiveFileId] = useState<string>('')
+  const [openFileIds, setOpenFileIds] = useState<string[]>([])
+  const initializedRef = useRef(false)
   const [connectedUsers, setConnectedUsers] = useState<ConnectedUser[]>([])
   const [output, setOutput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isBlocked, setIsBlocked] = useState(false)
   const [stdin, setStdin] = useState('')
   const [toast, setToast] = useState(false)
+  const [editorMode, setEditorMode] = useState<'shared' | 'personal'>('shared')
+  const [personalCode, setPersonalCode] = useState('')
+  const personalCodeMap = useRef<Map<string, string>>(new Map())
   const toastShownRef = useRef(false)
   const lastCodeRef = useRef('')
   const { user, session, signOut } = useAuth()
@@ -159,14 +169,71 @@ function EditorPage() {
     }
   }, [])
 
-  // Set first file as active once loaded
+  // Report project name to parent (for project tabs)
   useEffect(() => {
-    if (files.length > 0 && !activeFileId) {
-      setActiveFileId(files[0].id)
+    if (projectName) onProjectName?.(projectName)
+  }, [projectName])
+
+  // Manage open file tabs
+  useEffect(() => {
+    if (files.length === 0) return
+    if (!initializedRef.current) {
+      // First load — open all files
+      initializedRef.current = true
+      const ids = files.map(f => f.id).filter(Boolean)
+      setOpenFileIds(ids)
+      setActiveFileId(ids[0] ?? '')
+    } else {
+      // Subsequent updates — auto-open newly added files
+      setOpenFileIds(prev => {
+        const prevSet = new Set(prev)
+        const newIds = files.map(f => f.id).filter(id => id && !prevSet.has(id))
+        if (newIds.length === 0) return prev
+        setActiveFileId(newIds[newIds.length - 1])
+        return [...prev, ...newIds]
+      })
     }
-  }, [files, activeFileId])
+  }, [files])
 
   const activeFile = files.find(f => f.id === activeFileId)
+  const openFiles = files.filter(f => openFileIds.includes(f.id))
+
+  const closeFileTab = (fileId: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setOpenFileIds(prev => {
+      const next = prev.filter(id => id !== fileId)
+      if (activeFileId === fileId) {
+        setActiveFileId(next[next.length - 1] ?? '')
+      }
+      return next
+    })
+  }
+
+  const handleSelectFile = (idOrName: string) => {
+    setActiveFileId(idOrName)
+    setOpenFileIds(prev => prev.includes(idOrName) ? prev : [...prev, idOrName])
+  }
+
+  // Restore personal code for the newly selected file
+  useEffect(() => {
+    if (!activeFileId) return
+    setPersonalCode(personalCodeMap.current.get(activeFileId) ?? '')
+    if (editorMode === 'personal') {
+      lastCodeRef.current = personalCodeMap.current.get(activeFileId) ?? ''
+    }
+  }, [activeFileId])
+
+  const handlePersonalCodeChange = (code: string) => {
+    setPersonalCode(code)
+    personalCodeMap.current.set(activeFileId, code)
+    lastCodeRef.current = code
+    if (toastShownRef.current) return
+    if (code.toLowerCase().includes('itecify')) {
+      toastShownRef.current = true
+      setToast(true)
+      setTimeout(() => setToast(false), 4000)
+    }
+  }
 
   const handleCodeChange = (code: string) => {
     lastCodeRef.current = code
@@ -193,6 +260,7 @@ function EditorPage() {
     const userId = user?.id ?? 'unknown'
 
     broadcast({ userId, displayName, avatarColor: '#f472b6', type: 'command', content: `${activeFile.language}: ${activeFile.name}`, timestamp: new Date().toISOString() })
+    addPersonalEntry({ userId, displayName, avatarColor: '#f472b6', type: 'command', content: `${activeFile.language}: ${activeFile.name}`, timestamp: new Date().toISOString() })
 
     try {
       const res = await fetch('/api/execute/stream', {
@@ -237,9 +305,11 @@ function EditorPage() {
             if (event.type === 'stdout') {
               setOutput(prev => prev + event.content)
               broadcast({ userId, displayName, avatarColor: '#f472b6', type: 'stdout', content: event.content, timestamp: new Date().toISOString() })
+              addPersonalEntry({ userId, displayName, avatarColor: '#f472b6', type: 'stdout', content: event.content, timestamp: new Date().toISOString() })
             } else if (event.type === 'stderr') {
               setOutput(prev => prev + event.content)
               broadcast({ userId, displayName, avatarColor: '#f472b6', type: 'stderr', content: event.content, timestamp: new Date().toISOString() })
+              addPersonalEntry({ userId, displayName, avatarColor: '#f472b6', type: 'stderr', content: event.content, timestamp: new Date().toISOString() })
             } else if (event.type === 'scan') {
               const warnings = event.warnings.map((w: { severity: string; message: string }) =>
                 `⚠ [${w.severity.toUpperCase()}] ${w.message}`
@@ -251,8 +321,10 @@ function EditorPage() {
             } else if (event.type === 'error') {
               setOutput(prev => prev + `ERROR: ${event.content}\n`)
               broadcast({ userId, displayName, avatarColor: '#f472b6', type: 'stderr', content: `ERROR: ${event.content}\n`, timestamp: new Date().toISOString() })
+              addPersonalEntry({ userId, displayName, avatarColor: '#f472b6', type: 'stderr', content: `ERROR: ${event.content}\n`, timestamp: new Date().toISOString() })
             } else if (event.type === 'exit') {
               broadcast({ userId, displayName, avatarColor: '#f472b6', type: 'exit', content: String(event.code ?? 0), timestamp: new Date().toISOString() })
+              addPersonalEntry({ userId, displayName, avatarColor: '#f472b6', type: 'exit', content: String(event.code ?? 0), timestamp: new Date().toISOString() })
             }
           } catch {
             // skip malformed SSE line
@@ -294,7 +366,18 @@ function EditorPage() {
         background: 'rgba(15,12,41,0.6)',
         backdropFilter: 'blur(24px)',
       }}>
-        <Sidebar files={files} activeFile={activeFileId} onSelectFile={setActiveFileId} loading={filesLoading} onCreateFile={addFile} />
+        <Sidebar
+          files={files}
+          activeFile={activeFileId}
+          onSelectFile={handleSelectFile}
+          loading={filesLoading}
+          onCreateFile={addFile}
+          onRestoreDefaults={restoreDefaults}
+          members={members}
+          onlineUserIds={connectedUsers.map(u => u.userId)}
+          projectName={projectName}
+          onNewProject={() => navigate('/dashboard')}
+        />
       </div>
 
       {/* Sidebar toggle button */}
@@ -327,19 +410,117 @@ function EditorPage() {
           background: 'rgba(0,0,0,0.25)',
           backdropFilter: 'blur(10px)',
           borderBottom: '1px solid rgba(255,255,255,0.08)',
-          padding: '0 8px',
+          padding: '4px 8px',
+          gap: '4px',
         }}>
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
-{files.map((file) => (
-              <button key={file.id} onClick={() => setActiveFileId(file.id)} style={{
-                padding: '8px 16px', fontSize: '12px',
-                background: activeFileId === file.id ? 'rgba(236,72,153,0.1)' : 'transparent',
-                color: activeFileId === file.id ? '#f9a8d4' : 'rgba(255,255,255,0.35)',
-                border: 'none',
-                borderTop: activeFileId === file.id ? '2px solid #f472b6' : '2px solid transparent',
-                cursor: 'pointer', transition: 'all 0.2s', fontFamily: 'monospace',
-              }}>
-                {file.name}
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '4px', overflowX: 'auto', flexWrap: 'nowrap' }}>
+            {openFiles.map((file) => {
+              const isActive = activeFileId === file.id
+              return (
+                <div key={file.id} style={{ position: 'relative', flexShrink: 0, display: 'flex', alignItems: 'center' }}>
+                  <button
+                    onClick={() => setActiveFileId(file.id)}
+                    style={{
+                      padding: '5px 28px 5px 14px',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      fontFamily: 'monospace',
+                      letterSpacing: '0.03em',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      background: isActive ? 'rgba(236,72,153,0.25)' : 'rgba(255,255,255,0.05)',
+                      border: isActive ? '1.5px solid #f472b6' : '1.5px solid rgba(255,255,255,0.15)',
+                      color: isActive ? '#f9a8d4' : 'rgba(255,255,255,0.4)',
+                      whiteSpace: 'nowrap',
+                    }}
+                    onMouseEnter={e => {
+                      if (!isActive) {
+                        e.currentTarget.style.background = 'rgba(236,72,153,0.1)'
+                        e.currentTarget.style.borderColor = 'rgba(244,114,182,0.4)'
+                        e.currentTarget.style.color = 'rgba(249,168,212,0.7)'
+                      }
+                    }}
+                    onMouseLeave={e => {
+                      if (!isActive) {
+                        e.currentTarget.style.background = 'rgba(255,255,255,0.05)'
+                        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'
+                        e.currentTarget.style.color = 'rgba(255,255,255,0.4)'
+                      }
+                    }}
+                  >
+                    {file.name}
+                  </button>
+                  {/* Close tab button */}
+                  <button
+                    onClick={e => closeFileTab(file.id, e)}
+                    title="Close tab"
+                    style={{
+                      position: 'absolute',
+                      right: '7px',
+                      width: '14px',
+                      height: '14px',
+                      background: 'transparent',
+                      border: 'none',
+                      color: 'rgba(255,255,255,0.3)',
+                      cursor: 'pointer',
+                      fontSize: '11px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderRadius: '3px',
+                      padding: 0,
+                      lineHeight: 1,
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.color = '#f9a8d4'; e.currentTarget.style.background = 'rgba(236,72,153,0.25)' }}
+                    onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.3)'; e.currentTarget.style.background = 'transparent' }}
+                  >
+                    ×
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+          {/* Editor mode toggle */}
+          <div style={{ display: 'flex', gap: '5px', marginLeft: '8px', marginRight: '4px' }}>
+            {(['shared', 'personal'] as const).map(mode => (
+              <button
+                key={mode}
+                onClick={() => {
+                  setEditorMode(mode)
+                  if (mode === 'personal') {
+                    lastCodeRef.current = personalCodeMap.current.get(activeFileId) ?? ''
+                  }
+                }}
+                style={{
+                  padding: '5px 14px',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  fontFamily: 'monospace',
+                  letterSpacing: '0.03em',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  background: editorMode === mode ? 'rgba(236,72,153,0.25)' : 'rgba(255,255,255,0.05)',
+                  border: editorMode === mode ? '1.5px solid #f472b6' : '1.5px solid rgba(255,255,255,0.15)',
+                  color: editorMode === mode ? '#f9a8d4' : 'rgba(255,255,255,0.4)',
+                }}
+                onMouseEnter={e => {
+                  if (editorMode !== mode) {
+                    e.currentTarget.style.background = 'rgba(236,72,153,0.1)'
+                    e.currentTarget.style.borderColor = 'rgba(244,114,182,0.4)'
+                    e.currentTarget.style.color = 'rgba(249,168,212,0.7)'
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (editorMode !== mode) {
+                    e.currentTarget.style.background = 'rgba(255,255,255,0.05)'
+                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'
+                    e.currentTarget.style.color = 'rgba(255,255,255,0.4)'
+                  }
+                }}
+              >
+                {mode === 'shared' ? '👥 Shared' : '🔒 Personal'}
               </button>
             ))}
           </div>
@@ -353,19 +534,42 @@ function EditorPage() {
             )}
         </div>
 
-        {/* Editor area — remount when file changes to reset realtime state */}
+        {/* Editor area */}
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           {activeFileId && activeFile ? (
-            <RealtimeEditor
-              key={activeFileId}
-              fileId={activeFileId}
-              projectId={projectId || undefined}
-              language={activeFile.language}
-              onCodeChange={handleCodeChange}
-              onUsersChange={setConnectedUsers}
-              timeTravelContent={timeTravelContent}
-              currentUserId={user?.id}
-            />
+            editorMode === 'shared' ? (
+              <RealtimeEditor
+                key={activeFileId}
+                projectId={projectId || undefined}
+                fileId={activeFileId}
+                language={activeFile.language}
+                onCodeChange={handleCodeChange}
+                onUsersChange={setConnectedUsers}
+                timeTravelContent={timeTravelContent}
+                currentUserId={user?.id}
+              />
+            ) : (
+              <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                <div style={{
+                  flexShrink: 0,
+                  background: 'rgba(139,92,246,0.08)',
+                  borderBottom: '1px solid rgba(139,92,246,0.2)',
+                  padding: '4px 16px',
+                  fontSize: '11px', fontFamily: 'monospace',
+                  color: 'rgba(139,92,246,0.7)',
+                  letterSpacing: '0.04em',
+                }}>
+                  🔒 Personal Editor — visible only to you
+                </div>
+                <div style={{ flex: 1, overflow: 'hidden' }}>
+                  <CodeEditor
+                    language={activeFile.language}
+                    value={personalCode}
+                    onChange={handlePersonalCodeChange}
+                  />
+                </div>
+              </div>
+            )
           ) : (
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.2)', fontFamily: 'monospace', fontSize: '13px' }}>
               {filesLoading ? 'Loading project…' : 'No files found'}
@@ -423,11 +627,13 @@ function EditorPage() {
             onForceRun={() => handleRun(true)}
             stdin={stdin}
             onStdinChange={setStdin}
+            personalEntries={personalOutputs}
+            onClearPersonal={clearPersonalOutputs}
           />
         </div>
       </div>
 
-      <AIBlock currentCode={lastCodeRef.current} language={activeFile?.language ?? 'plaintext'} />
+      <AIBlock currentCode={lastCodeRef.current} language={activeFile?.language ?? 'plaintext'} terminalHeight={terminalHeight} terminalCollapsed={terminalCollapsed} />
 
       {toast && (
         <div style={{
@@ -457,6 +663,151 @@ function EditorPage() {
 }
 
 
+// ── Multi-project tab wrapper ────────────────────────────────────────────────
+interface OpenProject {
+  id?: string
+  name: string
+}
+
+function MultiProjectEditorWrapper() {
+  const location = useLocation()
+  const navigate = useNavigate()
+  const incomingId = (location.state as { projectId?: string } | null)?.projectId
+
+  const [openProjects, setOpenProjects] = useState<OpenProject[]>([
+    { id: incomingId, name: incomingId ? '…' : 'Demo' },
+  ])
+  const [activeIdx, setActiveIdx] = useState(0)
+  const prevIdRef = useRef(incomingId)
+
+  // Detect navigation to a new project
+  useEffect(() => {
+    const pid = (location.state as { projectId?: string } | null)?.projectId
+    if (pid === prevIdRef.current) return
+    prevIdRef.current = pid
+    if (!pid) return
+
+    setOpenProjects(prev => {
+      const idx = prev.findIndex(p => p.id === pid)
+      if (idx >= 0) {
+        setActiveIdx(idx)
+        return prev
+      }
+      const next = [...prev, { id: pid, name: '…' }]
+      setActiveIdx(next.length - 1)
+      return next
+    })
+  }, [location.state])
+
+  const updateName = (idx: number, name: string) => {
+    setOpenProjects(prev => prev.map((p, i) => i === idx ? { ...p, name } : p))
+  }
+
+  const closeProject = (idx: number, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (openProjects.length === 1) {
+      navigate('/dashboard')
+      return
+    }
+    setOpenProjects(prev => {
+      const next = prev.filter((_, i) => i !== idx)
+      setActiveIdx(a => Math.min(a > idx ? a - 1 : a, next.length - 1))
+      return next
+    })
+  }
+
+  const active = openProjects[activeIdx]
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+      {/* Project tabs */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        background: 'rgba(5,2,20,0.7)',
+        backdropFilter: 'blur(10px)',
+        borderBottom: '1px solid rgba(139,92,246,0.2)',
+        padding: '4px 8px',
+        gap: '4px',
+        flexShrink: 0,
+        overflowX: 'auto',
+      }}>
+        {openProjects.map((p, i) => {
+          const isActive = activeIdx === i
+          return (
+            <div key={`${p.id ?? 'demo'}-${i}`} style={{ position: 'relative', flexShrink: 0, display: 'flex', alignItems: 'center' }}>
+              <button
+                onClick={() => setActiveIdx(i)}
+                style={{
+                  padding: '4px 26px 4px 10px',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  fontFamily: 'monospace',
+                  letterSpacing: '0.03em',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  background: isActive ? 'rgba(139,92,246,0.25)' : 'rgba(255,255,255,0.04)',
+                  border: isActive ? '1.5px solid #a78bfa' : '1.5px solid rgba(255,255,255,0.12)',
+                  color: isActive ? '#c4b5fd' : 'rgba(255,255,255,0.4)',
+                  whiteSpace: 'nowrap',
+                }}
+                onMouseEnter={e => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = 'rgba(139,92,246,0.12)'
+                    e.currentTarget.style.borderColor = 'rgba(167,139,250,0.4)'
+                    e.currentTarget.style.color = 'rgba(196,181,253,0.8)'
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = 'rgba(255,255,255,0.04)'
+                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)'
+                    e.currentTarget.style.color = 'rgba(255,255,255,0.4)'
+                  }
+                }}
+              >
+                📁 {p.name}
+              </button>
+              <button
+                onClick={e => closeProject(i, e)}
+                title="Close project"
+                style={{
+                  position: 'absolute',
+                  right: '7px',
+                  width: '14px',
+                  height: '14px',
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'rgba(255,255,255,0.3)',
+                  cursor: 'pointer',
+                  fontSize: '11px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: '3px',
+                  padding: 0,
+                  lineHeight: 1,
+                }}
+                onMouseEnter={e => { e.currentTarget.style.color = '#c4b5fd'; e.currentTarget.style.background = 'rgba(139,92,246,0.25)' }}
+                onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.3)'; e.currentTarget.style.background = 'transparent' }}
+              >
+                ×
+              </button>
+            </div>
+          )
+        })}
+      </div>
+
+      <EditorPage
+        key={active?.id ?? 'demo'}
+        externalProjectId={active?.id}
+        onProjectName={name => updateName(activeIdx, name)}
+      />
+    </div>
+  )
+}
+
 export default function App() {
   const { activated, reset } = useKonamiCode()
 
@@ -467,7 +818,7 @@ export default function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
-        <Route path="/editor" element={<ProtectedRoute><EditorPage /></ProtectedRoute>} />
+        <Route path="/editor" element={<ProtectedRoute><MultiProjectEditorWrapper /></ProtectedRoute>} />
         <Route path="/secret" element={<SecretPage />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>

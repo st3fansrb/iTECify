@@ -198,7 +198,7 @@ export default function DashboardPage() {
             {projects.map((project) => (
               <div
                 key={project.id}
-                onClick={() => navigate('/editor')}
+                onClick={() => navigate('/editor', { state: { projectId: project.id } })}
                 style={{
                   background: 'rgba(10,6,20,0.7)',
                   border: '1px solid rgba(255,255,255,0.07)',

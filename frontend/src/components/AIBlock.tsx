@@ -6,11 +6,15 @@
 
 import { useState, useRef, useCallback } from 'react'
 import { useAuth } from '../hooks/useAuth'
+// @ts-ignore — TriqBot is a .jsx component without type declarations
+import TriqBot from './TriqBot'
 
 interface AIBlockProps {
   /** Currently visible code in the editor — used as context for AI. */
   currentCode: string
   language: string
+  terminalHeight?: number
+  terminalCollapsed?: boolean
 }
 
 interface Message {
@@ -18,7 +22,7 @@ interface Message {
   text: string
 }
 
-export default function AIBlock({ currentCode, language }: AIBlockProps) {
+export default function AIBlock({ currentCode, language, terminalHeight = 192, terminalCollapsed = false }: AIBlockProps) {
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -65,52 +69,32 @@ export default function AIBlock({ currentCode, language }: AIBlockProps) {
 
   return (
     <>
-      {/* Toggle button */}
-      <button
-        onClick={() => setOpen(o => !o)}
-        title="AI Assistant"
+      {/* Toggle button — TriqBot avatar (above terminal Run/Clear buttons) */}
+      <div
         style={{
           position: 'fixed',
-          bottom: open ? '380px' : '24px',
           right: '24px',
+          bottom: `${(terminalCollapsed ? 36 : terminalHeight) + 6 + 36}px`,
           zIndex: 200,
-          width: '44px',
-          height: '44px',
-          borderRadius: '50%',
-          border: '1px solid rgba(249,168,212,0.4)',
-          background: open
-            ? 'rgba(249,168,212,0.2)'
-            : 'linear-gradient(135deg, rgba(249,168,212,0.25), rgba(216,180,254,0.25))',
-          backdropFilter: 'blur(12px)',
-          color: '#f9a8d4',
-          fontSize: '18px',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          boxShadow: '0 4px 20px rgba(249,168,212,0.2)',
-          transition: 'bottom 0.3s ease, transform 0.2s',
         }}
-        onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.1)' }}
-        onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)' }}
       >
-        {open ? '✕' : '✦'}
-      </button>
+        <TriqBot onClick={() => setOpen(o => !o)} />
+      </div>
 
       {/* Panel */}
       {open && (
         <div style={{
           position: 'fixed',
-          bottom: '24px',
-          right: '80px',
+          bottom: '240px',
+          right: '24px',
           zIndex: 199,
-          width: '360px',
-          height: '340px',
-          background: 'rgba(8,4,18,0.92)',
-          backdropFilter: 'blur(24px)',
-          border: '1px solid rgba(249,168,212,0.2)',
-          borderRadius: '14px',
-          boxShadow: '0 8px 40px rgba(0,0,0,0.6), 0 0 60px rgba(249,168,212,0.06)',
+          width: '320px',
+          height: '420px',
+          background: 'rgba(10,5,30,0.9)',
+          backdropFilter: 'blur(20px)',
+          border: '1px solid rgba(249,168,212,0.25)',
+          borderRadius: '16px',
+          boxShadow: '0 8px 40px rgba(0,0,0,0.6), 0 0 40px rgba(244,114,182,0.1)',
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
@@ -125,16 +109,43 @@ export default function AIBlock({ currentCode, language }: AIBlockProps) {
             gap: '8px',
             background: 'rgba(0,0,0,0.3)',
             flexShrink: 0,
+            position: 'relative',
           }}>
             <span style={{ fontSize: '12px', color: 'rgba(249,168,212,0.5)', letterSpacing: '0.12em', fontFamily: 'monospace' }}>
               ✦ AI ASSISTANT
             </span>
             <span style={{
               marginLeft: 'auto', fontSize: '10px', color: 'rgba(255,255,255,0.2)',
-              fontFamily: 'monospace',
+              fontFamily: 'monospace', marginRight: '18px',
             }}>
               {language}
             </span>
+            <button
+              onClick={() => setOpen(false)}
+              title="Close"
+              style={{
+                position: 'absolute',
+                top: '6px',
+                right: '8px',
+                width: '14px',
+                height: '14px',
+                fontSize: '10px',
+                padding: '2px',
+                background: 'transparent',
+                border: 'none',
+                color: 'rgba(255,255,255,0.35)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                lineHeight: 1,
+                borderRadius: '3px',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.color = '#f9a8d4' }}
+              onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.35)' }}
+            >
+              ✕
+            </button>
           </div>
 
           {/* Messages */}
@@ -252,6 +263,11 @@ export default function AIBlock({ currentCode, language }: AIBlockProps) {
           66%  { content: 'thinking..'; }
           100% { content: 'thinking...'; }
         }
+        @keyframes ai-pulse {
+          0%, 100% { box-shadow: 0 0 20px rgba(244,114,182,0.5), 0 4px 24px rgba(168,85,247,0.4); }
+          50%       { box-shadow: 0 0 36px rgba(244,114,182,0.85), 0 4px 32px rgba(168,85,247,0.7); }
+        }
+        .ai-pulse { animation: ai-pulse 2s ease-in-out infinite; }
       `}</style>
     </>
   )

@@ -1,3 +1,6 @@
+import { useState } from 'react'
+import type { TerminalEntry } from '../hooks/useSharedTerminal'
+
 interface TerminalOutputProps {
   output: string
   isLoading: boolean
@@ -9,9 +12,21 @@ interface TerminalOutputProps {
   onForceRun?: () => void
   stdin?: string
   onStdinChange?: (value: string) => void
+  personalEntries?: TerminalEntry[]
+  onClearPersonal?: () => void
 }
 
-export default function TerminalOutput({ output, isLoading, onRun, onClear, collapsed = false, onToggleCollapse, isBlocked = false, onForceRun, stdin = '', onStdinChange }: TerminalOutputProps) {
+export default function TerminalOutput({ output, isLoading, onRun, onClear, collapsed = false, onToggleCollapse, isBlocked = false, onForceRun, stdin = '', onStdinChange, personalEntries, onClearPersonal }: TerminalOutputProps) {
+  const [activeTab, setActiveTab] = useState<'shared' | 'personal'>('shared')
+
+  const handleClear = () => {
+    if (activeTab === 'personal' && onClearPersonal) {
+      onClearPersonal()
+    } else {
+      onClear()
+    }
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
       {/* Terminal header */}
@@ -19,6 +34,44 @@ export default function TerminalOutput({ output, isLoading, onRun, onClear, coll
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-pink-400 animate-pulse" />
           <span className="text-pink-300 text-xs uppercase tracking-widest font-mono">Terminal</span>
+          {/* Tabs */}
+          <div style={{ display: 'flex', gap: '5px', marginLeft: '12px' }}>
+            {(['shared', 'personal'] as const).map(tab => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                style={{
+                  padding: '4px 12px',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  fontFamily: 'monospace',
+                  letterSpacing: '0.03em',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  background: activeTab === tab ? 'rgba(236,72,153,0.25)' : 'rgba(255,255,255,0.05)',
+                  border: activeTab === tab ? '1.5px solid #f472b6' : '1.5px solid rgba(255,255,255,0.15)',
+                  color: activeTab === tab ? '#f9a8d4' : 'rgba(255,255,255,0.4)',
+                }}
+                onMouseEnter={e => {
+                  if (activeTab !== tab) {
+                    e.currentTarget.style.background = 'rgba(236,72,153,0.1)'
+                    e.currentTarget.style.borderColor = 'rgba(244,114,182,0.4)'
+                    e.currentTarget.style.color = 'rgba(249,168,212,0.7)'
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (activeTab !== tab) {
+                    e.currentTarget.style.background = 'rgba(255,255,255,0.05)'
+                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'
+                    e.currentTarget.style.color = 'rgba(255,255,255,0.4)'
+                  }
+                }}
+              >
+                {tab === 'shared' ? 'Shared' : 'My Terminal'}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="flex gap-2" style={{ alignItems: 'center' }}>
           {isBlocked && onForceRun && (
@@ -77,7 +130,7 @@ export default function TerminalOutput({ output, isLoading, onRun, onClear, coll
             {isLoading ? '⟳ Running...' : '▶ Run'}
           </button>
           <button
-            onClick={onClear}
+            onClick={handleClear}
             style={{
               padding: '6px 14px',
               fontSize: '12px',
@@ -162,14 +215,49 @@ export default function TerminalOutput({ output, isLoading, onRun, onClear, coll
       {/* Output — hidden when collapsed */}
       {!collapsed && (
         <div className="flex-1 overflow-y-auto px-4 py-2 font-mono text-xs terminal-pink">
-          {output
-            ? output.split('\n').map((line, i) => (
-                <div key={i} className={line.toLowerCase().includes('error') ? 'text-red-400' : 'text-pink-300'}>
-                  <span className="text-pink-500/50 mr-2">❯</span>{line}
-                </div>
-              ))
-            : <span className="text-pink-500/30">// Output-ul va apărea aici după Run...</span>
-          }
+          {activeTab === 'shared' ? (
+            // Shared tab — original behavior
+            output
+              ? output.split('\n').map((line, i) => (
+                  <div key={i} className={line.toLowerCase().includes('error') ? 'text-red-400' : 'text-pink-300'}>
+                    <span className="text-pink-500/50 mr-2">❯</span>{line}
+                  </div>
+                ))
+              : <span className="text-pink-500/30">// Output-ul va apărea aici după Run...</span>
+          ) : (
+            // Personal tab — TerminalEntry[] with per-type colors
+            personalEntries && personalEntries.length > 0
+              ? personalEntries.map((entry, i) => {
+                  if (entry.type === 'command') {
+                    return (
+                      <div key={i} style={{ color: 'rgba(249,168,212,0.7)', fontFamily: 'monospace' }}>
+                        ▶ [{entry.displayName}] {entry.content}
+                      </div>
+                    )
+                  }
+                  if (entry.type === 'exit') {
+                    return (
+                      <div key={i} style={{ color: 'rgba(255,255,255,0.3)', fontFamily: 'monospace' }}>
+                        [{entry.displayName}] exited ({entry.content})
+                      </div>
+                    )
+                  }
+                  if (entry.type === 'stderr') {
+                    return (
+                      <div key={i} style={{ color: '#f87171', fontFamily: 'monospace' }}>
+                        {entry.content}
+                      </div>
+                    )
+                  }
+                  // stdout
+                  return (
+                    <div key={i} style={{ color: '#f9a8d4', fontFamily: 'monospace' }}>
+                      {entry.content}
+                    </div>
+                  )
+                })
+              : <span className="text-pink-500/30">// Personal output va apărea aici după Run...</span>
+          )}
         </div>
       )}
     </div>

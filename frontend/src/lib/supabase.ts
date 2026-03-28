@@ -42,37 +42,46 @@ type Database = {
   public: {
     Tables: {
       projects: {
-        Row: Project
-        Insert: { id?: string; name: string; created_at?: string; owner_id?: string }
-        Update: Partial<Project>
+        Row: { id: string; name: string; created_at: string; owner_id: string; invite_code: string | null }
+        Insert: { id?: string; name: string; created_at?: string; owner_id?: string; invite_code?: string | null }
+        Update: { id?: string; name?: string; created_at?: string; owner_id?: string; invite_code?: string | null }
+        Relationships: never[]
       }
       files: {
-        Row: File
-        Insert: {
-          id?: string
-          project_id: string
-          name: string
-          language?: string
-          content?: string
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Update: Partial<File>
+        Row: { id: string; project_id: string; name: string; language: string; content: string; updated_at: string; updated_by: string | null }
+        Insert: { id?: string; project_id: string; name: string; language?: string; content?: string; updated_at?: string; updated_by?: string | null }
+        Update: { id?: string; project_id?: string; name?: string; language?: string; content?: string; updated_at?: string; updated_by?: string | null }
+        Relationships: never[]
       }
       profiles: {
-        Row: Profile
+        Row: { id: string; display_name: string; avatar_color: string; updated_at: string }
         Insert: { id: string; display_name?: string; avatar_color?: string; updated_at?: string }
-        Update: Partial<Omit<Profile, 'id'>>
+        Update: { display_name?: string; avatar_color?: string; updated_at?: string }
+        Relationships: never[]
       }
       file_history: {
-        Row: FileHistoryEntry
+        Row: { id: string; file_id: string; content: string; saved_by: string | null; saved_at: string }
         Insert: { id?: string; file_id: string; content: string; saved_by?: string | null; saved_at?: string }
-        Update: never
+        Update: { id?: string; file_id?: string; content?: string; saved_by?: string | null; saved_at?: string }
+        Relationships: never[]
+      }
+      project_members: {
+        Row: { project_id: string; user_id: string; role: 'owner' | 'member'; joined_at: string }
+        Insert: { project_id: string; user_id: string; role?: 'owner' | 'member'; joined_at?: string }
+        Update: { role?: 'owner' | 'member' }
+        Relationships: never[]
+      }
+      invitations: {
+        Row: { id: string; project_id: string; invited_email: string; invited_by: string; status: 'pending' | 'accepted' | 'rejected'; created_at: string }
+        Insert: { id?: string; project_id: string; invited_email: string; invited_by: string; status?: 'pending' | 'accepted' | 'rejected'; created_at?: string }
+        Update: { status?: 'pending' | 'accepted' | 'rejected' }
+        Relationships: never[]
       }
     }
-    Views: Record<string, never>
-    Functions: Record<string, never>
-    Enums: Record<string, never>
+    Views: { [_ in never]: never }
+    Functions: { [_ in never]: never }
+    Enums: { [_ in never]: never }
+    CompositeTypes: { [_ in never]: never }
   }
 }
 
