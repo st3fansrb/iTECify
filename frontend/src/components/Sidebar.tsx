@@ -19,6 +19,9 @@ interface SidebarProps {
   onlineUserIds?: string[]
   onNewProject?: () => void
   projectName?: string
+  userProjects?: Array<{ id: string; name: string }>
+  currentProjectId?: string
+  onSwitchProject?: (projectId: string) => void
 }
 
 const EXT_TO_LANG: Record<string, string> = {
@@ -150,11 +153,12 @@ function SidebarKeyframes() {
   )
 }
 
-export default function Sidebar({ files, activeFile, onSelectFile, loading, onCreateFile, onRestoreDefaults, members = [], onlineUserIds = [], onNewProject, projectName }: SidebarProps) {
+export default function Sidebar({ files, activeFile, onSelectFile, loading, onCreateFile, onRestoreDefaults, members = [], onlineUserIds = [], onNewProject, projectName, userProjects = [], currentProjectId, onSwitchProject }: SidebarProps) {
   const navigate = useNavigate()
   const [expanded, setExpanded] = useState(true)
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState('')
+  const [switcherOpen, setSwitcherOpen] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const openCreate = () => {
@@ -363,20 +367,115 @@ export default function Sidebar({ files, activeFile, onSelectFile, loading, onCr
 
         {expanded && !loading && (
           <div>
-            {/* Project root */}
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: '4px',
-              padding: '4px 12px',
-              fontSize: '12px', fontWeight: 600,
-              color: 'rgba(255,255,255,0.6)',
-              fontFamily: 'monospace',
-              userSelect: 'none',
-            }}>
-              <span style={{ fontSize: '11px', opacity: 0.6 }}>&#9662;</span>
-              <span>&#128193;</span>
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {projectName ?? 'iTECify Demo'}
-              </span>
+            {/* Project root — clickable switcher */}
+            <div style={{ position: 'relative' }}>
+              <button
+                onClick={() => setSwitcherOpen(o => !o)}
+                title="Switch project"
+                style={{
+                  width: '100%',
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                  padding: '5px 12px',
+                  fontSize: '12px', fontWeight: 600,
+                  color: switcherOpen ? '#f9a8d4' : 'rgba(255,255,255,0.65)',
+                  fontFamily: 'monospace',
+                  background: switcherOpen ? 'rgba(236,72,153,0.1)' : 'transparent',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s',
+                  textAlign: 'left',
+                }}
+                onMouseEnter={e => { if (!switcherOpen) { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = 'rgba(255,255,255,0.85)' } }}
+                onMouseLeave={e => { if (!switcherOpen) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.65)' } }}
+              >
+                <span style={{ fontSize: '13px' }}>📁</span>
+                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {projectName ?? 'iTECify Demo'}
+                </span>
+                <span style={{
+                  fontSize: '9px', opacity: 0.5,
+                  transform: switcherOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                  transition: 'transform 0.2s',
+                  flexShrink: 0,
+                }}>▼</span>
+              </button>
+
+              {/* Dropdown */}
+              {switcherOpen && (
+                <div style={{
+                  position: 'absolute', top: '100%', left: 8, right: 8,
+                  zIndex: 100,
+                  background: 'rgba(10,6,25,0.97)',
+                  border: '1px solid rgba(236,72,153,0.2)',
+                  borderRadius: '10px',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+                  overflow: 'hidden',
+                  backdropFilter: 'blur(20px)',
+                  animation: 'switcher-in 0.15s ease both',
+                }}>
+                  <div style={{ padding: '6px 10px 4px', fontSize: '9px', fontWeight: 700, letterSpacing: '0.1em', color: 'rgba(255,255,255,0.2)', textTransform: 'uppercase' }}>
+                    Your projects
+                  </div>
+                  {userProjects.length === 0 && (
+                    <div style={{ padding: '8px 12px', fontSize: '11px', color: 'rgba(255,255,255,0.25)', fontFamily: 'monospace' }}>
+                      No projects found
+                    </div>
+                  )}
+                  {userProjects.map(p => {
+                    const isCurrent = p.id === currentProjectId
+                    return (
+                      <button
+                        key={p.id}
+                        onClick={() => { setSwitcherOpen(false); if (!isCurrent) onSwitchProject?.(p.id) }}
+                        style={{
+                          width: '100%', textAlign: 'left',
+                          padding: '8px 12px',
+                          display: 'flex', alignItems: 'center', gap: '8px',
+                          background: isCurrent ? 'rgba(236,72,153,0.12)' : 'transparent',
+                          border: 'none',
+                          color: isCurrent ? '#f9a8d4' : 'rgba(255,255,255,0.65)',
+                          fontSize: '12px', fontFamily: 'monospace',
+                          cursor: isCurrent ? 'default' : 'pointer',
+                          transition: 'background 0.12s',
+                        }}
+                        onMouseEnter={e => { if (!isCurrent) e.currentTarget.style.background = 'rgba(255,255,255,0.05)' }}
+                        onMouseLeave={e => { if (!isCurrent) e.currentTarget.style.background = 'transparent' }}
+                      >
+                        <span style={{ fontSize: '11px' }}>📁</span>
+                        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
+                        {isCurrent && <span style={{ fontSize: '10px', color: '#f9a8d4', opacity: 0.7 }}>✓</span>}
+                      </button>
+                    )
+                  })}
+                  <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '4px 0' }} />
+                  <button
+                    onClick={() => { setSwitcherOpen(false); onNewProject?.() }}
+                    style={{
+                      width: '100%', textAlign: 'left',
+                      padding: '8px 12px',
+                      display: 'flex', alignItems: 'center', gap: '8px',
+                      background: 'transparent', border: 'none',
+                      color: 'rgba(167,139,250,0.8)',
+                      fontSize: '12px', fontFamily: 'monospace',
+                      cursor: 'pointer',
+                      transition: 'background 0.12s',
+                      marginBottom: 4,
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(139,92,246,0.1)' }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+                  >
+                    <span>＋</span>
+                    <span>New project</span>
+                  </button>
+                </div>
+              )}
+              <style>{`
+                @keyframes switcher-in {
+                  from { opacity: 0; transform: translateY(-6px); }
+                  to   { opacity: 1; transform: translateY(0); }
+                }
+              `}</style>
             </div>
 
             {/* Files list — per-language gradient hover (Madalina) */}
