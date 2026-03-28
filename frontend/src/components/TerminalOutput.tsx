@@ -35,20 +35,39 @@ export default function TerminalOutput({ output, isLoading, onRun, onClear, coll
           <span className="w-2 h-2 rounded-full bg-pink-400 animate-pulse" />
           <span className="text-pink-300 text-xs uppercase tracking-widest font-mono">Terminal</span>
           {/* Tabs */}
-          <div style={{ display: 'flex', gap: '2px', marginLeft: '12px' }}>
+          <div style={{ display: 'flex', gap: '5px', marginLeft: '12px' }}>
             {(['shared', 'personal'] as const).map(tab => (
-              <button key={tab} onClick={() => setActiveTab(tab)} style={{
-                padding: '3px 12px',
-                fontSize: '11px',
-                fontFamily: 'monospace',
-                background: activeTab === tab ? 'rgba(236,72,153,0.2)' : 'transparent',
-                border: 'none',
-                borderBottom: activeTab === tab ? '2px solid #f472b6' : '2px solid transparent',
-                color: activeTab === tab ? '#f9a8d4' : 'rgba(255,255,255,0.3)',
-                cursor: 'pointer',
-                transition: 'all 0.15s',
-                letterSpacing: '0.05em',
-              }}>
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                style={{
+                  padding: '4px 12px',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  fontFamily: 'monospace',
+                  letterSpacing: '0.03em',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  background: activeTab === tab ? 'rgba(236,72,153,0.25)' : 'rgba(255,255,255,0.05)',
+                  border: activeTab === tab ? '1.5px solid #f472b6' : '1.5px solid rgba(255,255,255,0.15)',
+                  color: activeTab === tab ? '#f9a8d4' : 'rgba(255,255,255,0.4)',
+                }}
+                onMouseEnter={e => {
+                  if (activeTab !== tab) {
+                    e.currentTarget.style.background = 'rgba(236,72,153,0.1)'
+                    e.currentTarget.style.borderColor = 'rgba(244,114,182,0.4)'
+                    e.currentTarget.style.color = 'rgba(249,168,212,0.7)'
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (activeTab !== tab) {
+                    e.currentTarget.style.background = 'rgba(255,255,255,0.05)'
+                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'
+                    e.currentTarget.style.color = 'rgba(255,255,255,0.4)'
+                  }
+                }}
+              >
                 {tab === 'shared' ? 'Shared' : 'My Terminal'}
               </button>
             ))}

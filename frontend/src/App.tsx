@@ -358,24 +358,48 @@ function EditorPage() {
           background: 'rgba(0,0,0,0.25)',
           backdropFilter: 'blur(10px)',
           borderBottom: '1px solid rgba(255,255,255,0.08)',
-          padding: '0 8px',
+          padding: '4px 8px',
+          gap: '4px',
         }}>
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
-{files.map((file) => (
-              <button key={file.id} onClick={() => setActiveFileId(file.id)} style={{
-                padding: '8px 16px', fontSize: '12px',
-                background: activeFileId === file.id ? 'rgba(236,72,153,0.1)' : 'transparent',
-                color: activeFileId === file.id ? '#f9a8d4' : 'rgba(255,255,255,0.35)',
-                border: 'none',
-                borderTop: activeFileId === file.id ? '2px solid #f472b6' : '2px solid transparent',
-                cursor: 'pointer', transition: 'all 0.2s', fontFamily: 'monospace',
-              }}>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '4px' }}>
+            {files.map((file) => (
+              <button
+                key={file.id}
+                onClick={() => setActiveFileId(file.id)}
+                style={{
+                  padding: '5px 14px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  fontFamily: 'monospace',
+                  letterSpacing: '0.03em',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  background: activeFileId === file.id ? 'rgba(236,72,153,0.25)' : 'rgba(255,255,255,0.05)',
+                  border: activeFileId === file.id ? '1.5px solid #f472b6' : '1.5px solid rgba(255,255,255,0.15)',
+                  color: activeFileId === file.id ? '#f9a8d4' : 'rgba(255,255,255,0.4)',
+                }}
+                onMouseEnter={e => {
+                  if (activeFileId !== file.id) {
+                    e.currentTarget.style.background = 'rgba(236,72,153,0.1)'
+                    e.currentTarget.style.borderColor = 'rgba(244,114,182,0.4)'
+                    e.currentTarget.style.color = 'rgba(249,168,212,0.7)'
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (activeFileId !== file.id) {
+                    e.currentTarget.style.background = 'rgba(255,255,255,0.05)'
+                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'
+                    e.currentTarget.style.color = 'rgba(255,255,255,0.4)'
+                  }
+                }}
+              >
                 {file.name}
               </button>
             ))}
           </div>
           {/* Editor mode toggle */}
-          <div style={{ display: 'flex', gap: '2px', marginLeft: '8px', marginRight: '4px' }}>
+          <div style={{ display: 'flex', gap: '5px', marginLeft: '8px', marginRight: '4px' }}>
             {(['shared', 'personal'] as const).map(mode => (
               <button
                 key={mode}
@@ -386,17 +410,31 @@ function EditorPage() {
                   }
                 }}
                 style={{
-                  padding: '3px 12px',
+                  padding: '5px 14px',
                   fontSize: '11px',
+                  fontWeight: 600,
                   fontFamily: 'monospace',
-                  background: editorMode === mode ? 'rgba(236,72,153,0.2)' : 'transparent',
-                  border: 'none',
-                  borderBottom: editorMode === mode ? '2px solid #f472b6' : '2px solid transparent',
-                  color: editorMode === mode ? '#f9a8d4' : 'rgba(255,255,255,0.3)',
+                  letterSpacing: '0.03em',
+                  borderRadius: '8px',
                   cursor: 'pointer',
-                  transition: 'all 0.15s',
-                  letterSpacing: '0.05em',
-                  height: '100%',
+                  transition: 'all 0.2s',
+                  background: editorMode === mode ? 'rgba(236,72,153,0.25)' : 'rgba(255,255,255,0.05)',
+                  border: editorMode === mode ? '1.5px solid #f472b6' : '1.5px solid rgba(255,255,255,0.15)',
+                  color: editorMode === mode ? '#f9a8d4' : 'rgba(255,255,255,0.4)',
+                }}
+                onMouseEnter={e => {
+                  if (editorMode !== mode) {
+                    e.currentTarget.style.background = 'rgba(236,72,153,0.1)'
+                    e.currentTarget.style.borderColor = 'rgba(244,114,182,0.4)'
+                    e.currentTarget.style.color = 'rgba(249,168,212,0.7)'
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (editorMode !== mode) {
+                    e.currentTarget.style.background = 'rgba(255,255,255,0.05)'
+                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'
+                    e.currentTarget.style.color = 'rgba(255,255,255,0.4)'
+                  }
                 }}
               >
                 {mode === 'shared' ? '👥 Shared' : '🔒 Personal'}
