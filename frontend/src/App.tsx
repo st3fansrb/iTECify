@@ -10,6 +10,7 @@ import KonamiExplosion from './components/KonamiExplosion'
 import { useKonamiCode } from './hooks/useKonamiCode'
 import { useAuth } from './hooks/useAuth'
 import { useProjectFiles } from './hooks/useProjectFiles'
+import { useProjectMembers } from './hooks/useProjectMembers'
 import { useRealtimeEditor, type ConnectedUser } from './hooks/useRealtimeEditor'
 import { useSharedTerminal } from './hooks/useSharedTerminal'
 import ConnectedUsers from './components/ConnectedUsers'
@@ -124,6 +125,7 @@ function RealtimeEditor({
 function EditorPage() {
   const { files, loading: filesLoading, addFile, projectId } = useProjectFiles()
   const { outputs, broadcast, clearOutputs } = useSharedTerminal(projectId)
+  const members = useProjectMembers(projectId)
 
   const [activeFileId, setActiveFileId] = useState<string>('')
   const [connectedUsers, setConnectedUsers] = useState<ConnectedUser[]>([])
@@ -294,7 +296,15 @@ function EditorPage() {
         background: 'rgba(15,12,41,0.6)',
         backdropFilter: 'blur(24px)',
       }}>
-        <Sidebar files={files} activeFile={activeFileId} onSelectFile={setActiveFileId} loading={filesLoading} onCreateFile={addFile} />
+        <Sidebar
+          files={files}
+          activeFile={activeFileId}
+          onSelectFile={setActiveFileId}
+          loading={filesLoading}
+          onCreateFile={addFile}
+          members={members}
+          onlineUserIds={connectedUsers.map(u => u.userId)}
+        />
       </div>
 
       {/* Sidebar toggle button */}
