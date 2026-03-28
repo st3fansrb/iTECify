@@ -66,6 +66,7 @@ function RealtimeEditor({
   const { code, updateCode, updateCursor, loading, isSaving, connectedUsers } = useRealtimeEditor({
     projectId,
     fileId,
+    fileName,
     initialContent: '',
   })
   const { saveSnapshot } = useFileHistory(fileId)
@@ -73,8 +74,8 @@ function RealtimeEditor({
   // Propagate connected users up to EditorPage
   useEffect(() => { onUsersChange(connectedUsers) }, [connectedUsers, onUsersChange])
 
-  // Propagate initial loaded code so Run works without typing first
-  useEffect(() => { if (!loading && code) onCodeChange(code) }, [loading])
+  // Propagate code to parent (local + remote changes) so Run always has latest code
+  useEffect(() => { if (!loading) onCodeChange(code) }, [code, loading])
 
   // Auto-save snapshot after 30s of inactivity
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -575,6 +576,7 @@ function EditorPage({ externalProjectId, onProjectName }: { externalProjectId?: 
                 key={activeFileId}
                 projectId={projectId || undefined}
                 fileId={activeFileId}
+                fileName={activeFile.name}
                 language={activeFile.language}
                 onCodeChange={handleCodeChange}
                 onUsersChange={setConnectedUsers}

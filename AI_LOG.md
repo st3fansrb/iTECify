@@ -107,3 +107,48 @@
   - creat `hooks/usePersonalTerminal.ts` — state local pur, fără Supabase, expune personalOutputs/addPersonalEntry/clearPersonalOutputs
   - `TerminalOutput.tsx`: adăugat tabs Shared/My Terminal în header; personal tab afișează TerminalEntry[] cu culori per tip; Clear șterge tab-ul activ
   - `App.tsx`: integrat usePersonalTerminal, addPersonalEntry apelat la fiecare event SSE (command/stdout/stderr/error/exit), props noi pasate la TerminalOutput
+* [x] **[2026-03-28] UI — HomePage: titlu iTECify revert la original:**
+  - Eliminat `@import Audiowide` din `index.css`, eliminat `import logoSrc` din HomePage.tsx
+  - H1 restaurat: `fontSize:64px fontWeight:800 gradient #fff→#f9a8d4→#d8b4fe`, text simplu `iTECify`
+* [x] **[2026-03-28] UI — KonamiExplosion: layout vertical (imagine→text→buton) + animații cat:**
+  - Layout refăcut: coloană flexbox centrată `flexDirection:column alignItems:center` — imagine sus → ACCESS GRANTED → subtitle → buton
+  - Imagine `cat-access.png`: `marginBottom:24px`, animații combinate: `cat-appear 0.6s ease-out` (fade-in + scale 0.5→1), `cat-float 3s infinite` (translateY ±10px), `cat-glow-pulse 2s infinite` (box-shadow 0.4→0.8 opacity)
+  - Hover imagine: `rotate(5deg)` cu `transition:transform 0.3s ease` via onMouseEnter/Leave
+  - Înlocuit `k-pop` cu `cat-appear` (eliminat rotație la apariție, păstrat scale fade-in)
+* [x] **[2026-03-28] UI — KonamiExplosion: access-bg.png + hue-rotate + cat centrat + gradient text + buton mare:**
+  - Fundal: `access-bg.png` `position:absolute inset:0 width:100% height:100% object-fit:cover opacity:0.6` + animație `k-hue-spin 10s linear infinite` (hue-rotate 0→360deg)
+  - Overlay: `rgba(4,0,16,0.45)` + `backdropFilter:blur(4px)` — transparent, fără negru solid
+  - Cat `cat-access.png`: 200×200px, `object-fit:contain`, centrat absolut, glow `box-shadow 0 0 40px/80px/130px` roz/mov, animație `cat-float 3s infinite`
+  - Titlu: `font-size 54px`, `font-weight 900`, `letter-spacing 0.3em`, gradient text `#fff→#f9a8d4→#d8b4fe` via `-webkit-background-clip:text`
+  - Glitch pseudo-elements: moștenesc gradientul prin `background:inherit`, `hue-rotate` ±30deg pentru shift colorat
+  - Buton: `padding 16px 40px`, `font-size 16px`, `border 1.5px rgba(236,72,153,0.65)`, hover glow `0 0 30px/60px` + `translateY(-2px) scale(1.03)`
+  - Import corectat: `logo.png` → `cat-access.png`, adăugat import `access-bg.png`
+* [x] **[2026-03-28] UI — Sidebar: titlu proiect prominent + hover glow + puls pe activ:**
+  - Titlu proiect: `font-size 16px`, `font-weight 700`, `color #ffffff`, `letter-spacing 0.05em`, separator `border-bottom 1px solid rgba(255,255,255,0.07)` dedesubt
+  - FileRow: tranziție `all 0.3s ease` pe background/color/border-color/transform/box-shadow
+  - Hover: `box-shadow inset 0 0 20px ${color}12` (glow subtil inset cu culoarea extensiei)
+  - Activ: `box-shadow inset 0 0 20px ${color}1a + 0 0 10px ${color}18` + animație CSS `sidebar-pulse` 2.4s infinite — `border-left-width 3px→5px` + `opacity 1→0.88`
+  - `<SidebarStyles />` — component care injectează `@keyframes sidebar-pulse` în `<style>` global
+* [x] **[2026-03-28] UI — Sidebar: file items cu gradient + border-left colorat per extensie:**
+  - `EXT_FILE_STYLE` map: gradient normal + active + borderColor per extensie (js/jsx/py/rs/ts/tsx/c/cpp/go/java + fallback roz)
+  - `getFileStyle(filename)` — extrage extensia și returnează stilul corespunzător
+  - Component separat `FileRow` (useState hover) — fiecare item gestionează propria stare hover
+  - Fișier normal: `margin 4px 8px`, `padding 10px 12px`, `borderRadius 8px`, border-left 2px transparent → colorat la hover
+  - Hover: `translateX(4px)` + gradient apare + border-left colorat (2px)
+  - Activ: gradient mai pronunțat (`gradientActive`), border-left 3px, `glow box-shadow`, culoare text `#ffffff`
+  - Badge-urile C/C++ actualizate la `#a8b9cc` (gri-albăstrui, lizibil pe fundal colorat)
+  - Tree connector (`├`/`└`) eliminat — incompatibil cu noul layout card-style
+* [x] **[2026-03-28] UI — DashboardPage v2 — dashboard-bg animat + glassmorphism fix:**
+  - Înlocuit blob.png cu `dashboard-bg.png`: `filter: hue-rotate(260deg) saturate(3) brightness(1.5)` (alb→mov/roz), animație `dash-bg-spin 20s linear infinite` + `dash-bg-float 6s ease-in-out infinite` (translateY via margin-top)
+  - Glow orbs roz stânga-sus + mov dreapta-jos (opacitate ușor crescută față de v1)
+  - Carduri glassmorphism conform spec: `background rgba(255,255,255,0.05)`, `border rgba(249,168,212,0.15)`, hover border `rgba(249,168,212,0.45)` + glow roz `0 0 28px rgba(249,168,212,0.18)` + `translateY(-4px)`
+  - Animație `card-in` fade+slide-up cu delay 60ms per card (staggered)
+* [x] **[2026-03-28] UI — DashboardPage redesign creativ:**
+  - Fundal identic cu HomePage: `linear-gradient(135deg, #1a0533→#2d1b4e→#0f0c29)` + blob animat (`blob-float`) + grid overlay + orbi roz/mov
+  - Titlu "Projects" cu gradient text `#fff→#f9a8d4→#d8b4fe`, label "Your workspace" monospace roz
+  - Buton "+ New project" cu același stil ca "Get Started" din HomePage (gradient roz/mov semi-transparent, blur, hover translateY + glow)
+  - Carduri glassmorphism: `backdrop-filter:blur(18px)`, border roz dinamic, hover `translateY(-4px)` + glow colorat per proiect
+  - Animație `card-in` (fade + slide-up) cu delay staggered (60ms per card) via `animation-delay`
+  - Icon bubble colorat random deterministic per project.id (8 culori × 12 iconițe) în loc de 📂 gri
+  - Bara de accent color gradient jos-stânga pe fiecare card
+  - Component separat `ProjectCard` pentru gestionarea hover state per card

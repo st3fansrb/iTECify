@@ -44,8 +44,8 @@ const EXT_BADGE: Record<string, { label: string; bg: string; color: string }> = 
   tsx:  { label: 'TS',  bg: '#3178c6', color: '#fff' },
   go:   { label: 'GO',  bg: '#00acd7', color: '#fff' },
   java: { label: 'JV',  bg: '#f89820', color: '#000' },
-  c:    { label: 'C',   bg: '#555597', color: '#fff' },
-  cpp:  { label: 'C++', bg: '#004283', color: '#fff' },
+  c:    { label: 'C',   bg: '#a8b9cc', color: '#000' },
+  cpp:  { label: 'C++', bg: '#a8b9cc', color: '#000' },
   md:   { label: 'MD',  bg: '#555',    color: '#fff' },
 }
 
@@ -79,7 +79,7 @@ function FileBadge({ filename }: { filename: string }) {
 
 const FALLBACK_COLORS = ['#f472b6', '#818cf8', '#34d399', '#fb923c', '#38bdf8']
 
-// ── Per-extension gradient styles for file rows (Madalina) ───────────────────
+// ── Per-extension gradient styles for file rows ───────────────────────────────
 const EXT_FILE_STYLE: Record<string, { gradient: string; gradientActive: string; borderColor: string }> = {
   js:   { gradient: 'linear-gradient(135deg, rgba(247,223,30,0.08), rgba(247,223,30,0.02))',   gradientActive: 'linear-gradient(135deg, rgba(247,223,30,0.18), rgba(247,223,30,0.06))',   borderColor: '#f7df1e' },
   jsx:  { gradient: 'linear-gradient(135deg, rgba(247,223,30,0.08), rgba(247,223,30,0.02))',   gradientActive: 'linear-gradient(135deg, rgba(247,223,30,0.18), rgba(247,223,30,0.06))',   borderColor: '#f7df1e' },
@@ -102,7 +102,7 @@ function getFileStyle(filename: string) {
   return EXT_FILE_STYLE[ext] ?? DEFAULT_FILE_STYLE
 }
 
-// ── FileRow — manages own hover state, per-language gradient (Madalina) ───────
+// ── FileRow — manages own hover state, per-language gradient ──────────────────
 function FileRow({ file, isActive, onSelect }: { file: FileItem; isActive: boolean; onSelect: () => void }) {
   const [hovered, setHovered] = useState(false)
   const fileStyle = getFileStyle(file.name)
@@ -112,6 +112,7 @@ function FileRow({ file, isActive, onSelect }: { file: FileItem; isActive: boole
       onClick={onSelect}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      className={isActive ? 'sidebar-file-active' : ''}
       style={{
         display: 'flex', alignItems: 'center', gap: '6px',
         margin: '3px 8px',
@@ -127,7 +128,7 @@ function FileRow({ file, isActive, onSelect }: { file: FileItem; isActive: boole
         boxShadow: isActive
           ? `inset 0 0 20px ${fileStyle.borderColor}1a, 0 0 10px ${fileStyle.borderColor}18`
           : hovered ? `inset 0 0 20px ${fileStyle.borderColor}12` : 'none',
-        transition: 'background 0.25s ease, color 0.25s ease, border-color 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease',
+        transition: 'background 0.3s ease, color 0.3s ease, border-color 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease',
         animationName: isActive ? 'sidebar-pulse' : 'none',
         animationDuration: '2.4s',
         animationTimingFunction: 'ease-in-out',
@@ -146,8 +147,19 @@ function SidebarKeyframes() {
   return (
     <style>{`
       @keyframes sidebar-pulse {
-        0%, 100% { border-left-width: 3px; }
-        50%       { border-left-width: 5px; }
+        0%, 100% { border-left-width: 3px; opacity: 1; }
+        50%       { border-left-width: 5px; opacity: 0.88; }
+      }
+      @keyframes shimmer {
+        0%, 100% { color: #f472b6; text-shadow: 0 0 8px rgba(244,114,182,0.5); }
+        50%       { color: #d8b4fe; text-shadow: 0 0 14px rgba(216,180,254,0.7); }
+      }
+      .sidebar-shimmer {
+        animation: shimmer 2.4s ease-in-out infinite;
+      }
+      @keyframes switcher-in {
+        from { opacity: 0; transform: translateY(-6px); }
+        to   { opacity: 1; transform: translateY(0); }
       }
       @keyframes shimmer {
         0%, 100% { color: #f472b6; }
@@ -483,15 +495,9 @@ export default function Sidebar({ files, activeFile, onSelectFile, loading, onCr
                   </button>
                 </div>
               )}
-              <style>{`
-                @keyframes switcher-in {
-                  from { opacity: 0; transform: translateY(-6px); }
-                  to   { opacity: 1; transform: translateY(0); }
-                }
-              `}</style>
             </div>
 
-            {/* Files list — per-language gradient hover (Madalina) */}
+            {/* Files list */}
             <ul style={{ listStyle: 'none', margin: 0, padding: '4px 0' }}>
               {files.map((file) => {
                 const isActive = activeFile === (file.id ?? file.name)
@@ -581,6 +587,8 @@ export default function Sidebar({ files, activeFile, onSelectFile, loading, onCr
       <div className="px-4 py-2 border-t border-slate-700 text-slate-500 text-xs">
         iTEC 2026 Hackathon
       </div>
+
+      <SidebarKeyframes />
     </div>
   )
 }

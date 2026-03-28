@@ -65,6 +65,7 @@ export function useProjectFiles(externalProjectId?: string): UseProjectFilesRetu
     const setup = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser()
+        console.log('[useProjectFiles] user:', user?.id, user?.email)
         if (!user) throw new Error('Not authenticated')
 
         let projectId: string
@@ -106,7 +107,7 @@ export function useProjectFiles(externalProjectId?: string): UseProjectFilesRetu
           await supabase
             .from('project_members')
             .upsert({ project_id: projectId, user_id: user.id, role: 'owner' }, { onConflict: 'project_id,user_id' })
-            .then(() => {}).catch(() => {})
+            .then(() => {}, () => {})
         } else {
           // ── 2. Caută membership ca member (după invite accept) ───────────────
           const { data: membership } = await supabase
@@ -136,7 +137,7 @@ export function useProjectFiles(externalProjectId?: string): UseProjectFilesRetu
             await supabase
               .from('project_members')
               .insert({ project_id: projectId, user_id: user.id, role: 'owner' })
-              .then(() => {}).catch(() => {})
+              .then(() => {}, () => {})
           }
         }
 
@@ -149,6 +150,7 @@ export function useProjectFiles(externalProjectId?: string): UseProjectFilesRetu
           .eq('project_id', projectId)
           .order('name')
 
+        console.log('[useProjectFiles] files lookup → data:', existingFiles, 'error:', filesErr)
         if (filesErr) throw new Error(`Failed to fetch files: ${filesErr.message}`)
 
         if (existingFiles && existingFiles.length > 0) {
@@ -184,6 +186,42 @@ export function useProjectFiles(externalProjectId?: string): UseProjectFilesRetu
     void setup()
     return () => { cancelled = true }
   }, [externalProjectId])
+
+  // ── Realtime subscription: auto-sync files list without page reload ──────────
+  useEffect(() => {
+    if (!projectId) return
+    const channel = supabase
+      .channel(`files-list-${projectId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'files', filter: `project_id=eq.${projectId}` },
+        (payload) => {
+          const f = payload.new as { id: string; name: string; language: string }
+          setFiles(prev => {
+            if (prev.some(x => x.id === f.id)) return prev
+            return [...prev, { id: f.id, name: f.name, language: f.language }]
+          })
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'files', filter: `project_id=eq.${projectId}` },
+        (payload) => {
+          const deleted = payload.old as { id: string }
+          setFiles(prev => prev.filter(f => f.id !== deleted.id))
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'files', filter: `project_id=eq.${projectId}` },
+        (payload) => {
+          const f = payload.new as { id: string; name: string; language: string }
+          setFiles(prev => prev.map(x => x.id === f.id ? { ...x, name: f.name, language: f.language } : x))
+        }
+      )
+      .subscribe()
+    return () => { void supabase.removeChannel(channel) }
+  }, [projectId])
 
   const addFile = useCallback(async (name: string, language: string) => {
     const pid = projectIdRef.current
