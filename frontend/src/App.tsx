@@ -105,7 +105,7 @@ function EditorPage() {
   const [toast, setToast] = useState(false)
   const toastShownRef = useRef(false)
   const lastCodeRef = useRef('')
-  const { user } = useAuth()
+  const { user, session } = useAuth()
 
   // Set first file as active once loaded
   useEffect(() => {
@@ -133,7 +133,10 @@ function EditorPage() {
     try {
       const res = await fetch('http://localhost:3001/api/execute', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`,
+        },
         body: JSON.stringify({ language: activeFile.language, code: lastCodeRef.current }),
       })
       const data = await res.json()
