@@ -47,7 +47,10 @@ export default function DashboardPage() {
       .insert({ name, owner_id: user.id })
       .select()
       .single()
-    if (!error && data) {
+    if (error) {
+      console.error('[DashboardPage] create project error:', error)
+      alert(`Eroare la creare proiect: ${error.message}`)
+    } else if (data) {
       setProjects(prev => [data, ...prev])
       setNewName('')
       setShowForm(false)
