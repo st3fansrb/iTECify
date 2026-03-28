@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import type { ProjectMember } from '../hooks/useProjectMembers'
 
 interface FileItem {
   id?: string
@@ -14,6 +15,8 @@ interface SidebarProps {
   loading?: boolean
   onCreateFile?: (name: string, language: string) => void
   onRestoreDefaults?: () => void
+  members?: ProjectMember[]
+  onlineUserIds?: string[]
 }
 
 const EXT_TO_LANG: Record<string, string> = {
@@ -69,7 +72,9 @@ function FileBadge({ filename }: { filename: string }) {
   )
 }
 
-export default function Sidebar({ files, activeFile, onSelectFile, loading, onCreateFile, onRestoreDefaults }: SidebarProps) {
+const FALLBACK_COLORS = ['#f472b6', '#818cf8', '#34d399', '#fb923c', '#38bdf8']
+
+export default function Sidebar({ files, activeFile, onSelectFile, loading, onCreateFile, onRestoreDefaults, members = [], onlineUserIds = [] }: SidebarProps) {
   const navigate = useNavigate()
   const [expanded, setExpanded] = useState(true)
   const [creating, setCreating] = useState(false)
@@ -277,6 +282,49 @@ export default function Sidebar({ files, activeFile, onSelectFile, loading, onCr
           </div>
         )}
       </div>
+
+      {/* Members section */}
+      {members.length > 0 && (
+        <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: '10px 0' }}>
+          <div style={{ padding: '0 12px 6px', fontSize: '10px', color: 'rgba(249,168,212,0.45)', fontFamily: 'monospace', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+            Members ({members.length})
+          </div>
+          {members.map((m, i) => {
+            const isOnline = onlineUserIds.includes(m.userId)
+            const color = m.avatarColor ?? FALLBACK_COLORS[i % FALLBACK_COLORS.length]
+            const label = m.displayName
+              ? m.displayName.slice(0, 2).toUpperCase()
+              : m.userId.slice(0, 2).toUpperCase()
+            const name = m.displayName ?? m.userId.slice(0, 12)
+            return (
+              <div key={m.userId} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 12px' }}>
+                <div style={{
+                  width: 24, height: 24, borderRadius: '50%', flexShrink: 0,
+                  background: color, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '9px', fontWeight: 700, color: '#0f0c29',
+                  position: 'relative',
+                }}>
+                  {label}
+                  <div style={{
+                    position: 'absolute', bottom: 0, right: 0,
+                    width: 7, height: 7, borderRadius: '50%',
+                    background: isOnline ? '#34d399' : 'rgba(255,255,255,0.2)',
+                    border: '1.5px solid #0f0c29',
+                  }} />
+                </div>
+                <div style={{ flex: 1, overflow: 'hidden' }}>
+                  <div style={{ fontSize: '11px', color: isOnline ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.4)', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {name}
+                  </div>
+                  <div style={{ fontSize: '9px', color: m.role === 'owner' ? 'rgba(249,168,212,0.5)' : 'rgba(255,255,255,0.25)', fontFamily: 'monospace' }}>
+                    {m.role === 'owner' ? '★ owner' : 'member'} {isOnline ? '· online' : ''}
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       {/* Bottom */}
       <div className="px-4 py-2 border-t border-slate-700 text-slate-500 text-xs">
