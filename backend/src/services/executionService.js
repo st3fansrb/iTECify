@@ -5,7 +5,10 @@ const { randomUUID } = require('crypto');
 const { spawn } = require('child_process');
 
 const TEMP_DIR = path.join(__dirname, '../../temp');
-const TIMEOUT_MS = 10000;
+const TIMEOUT_MS = 30000;
+
+// Languages that need more memory for compilation (Go, Rust, Java, TypeScript)
+const HIGH_MEMORY_LANGS = new Set(['go', 'rust', 'java', 'typescript']);
 
 // Docker runners — stdin piped via /sandbox/stdin.txt
 const DOCKER_RUNNERS = {
@@ -30,17 +33,100 @@ const DOCKER_RUNNERS = {
     cmd: ['sh', '-c', 'cat /sandbox/stdin.txt | go run /sandbox/code.go'],
   },
   java: {
-    image: 'openjdk:17-alpine',
+    image: 'eclipse-temurin:17-alpine',
     file: 'Main.java',
     cmd: ['sh', '-c', 'javac /sandbox/Main.java -d /tmp && cat /sandbox/stdin.txt | java -cp /tmp Main'],
+  },
+  c: {
+    image: 'gcc:14',
+    file: 'code.c',
+    cmd: ['sh', '-c', 'gcc /sandbox/code.c -o /tmp/out -lm 2>&1 && cat /sandbox/stdin.txt | /tmp/out'],
+  },
+  cpp: {
+    image: 'gcc:14',
+    file: 'code.cpp',
+    cmd: ['sh', '-c', 'g++ /sandbox/code.cpp -o /tmp/out -lm 2>&1 && cat /sandbox/stdin.txt | /tmp/out'],
+  },
+  typescript: {
+    image: 'node:22-alpine',
+    file: 'code.ts',
+    cmd: ['sh', '-c', 'cat /sandbox/stdin.txt | node --experimental-strip-types /sandbox/code.ts'],
   },
 };
 
 // Fallback runners (child_process, no Docker needed)
+// Each runner can define: cmd, args(file), ext, and optionally compile(file) for compiled langs
 const FALLBACK_RUNNERS = {
-  javascript: { cmd: 'node',   args: (f) => [f], ext: 'js' },
-  python:     { cmd: 'python', args: (f) => [f], ext: 'py' },
+  javascript: {
+    ext: 'js',
+    run: (tmpFile) => ({ cmd: 'node', args: [tmpFile] }),
+  },
+  python: {
+    ext: 'py',
+    run: (tmpFile) => ({ cmd: 'python', args: [tmpFile] }),
+  },
+  typescript: {
+    ext: 'ts',
+    run: (tmpFile) => ({ cmd: 'npx', args: ['--yes', 'ts-node', '--skip-project', tmpFile] }),
+  },
+  rust: {
+    ext: 'rs',
+    compile: (tmpFile) => {
+      const outFile = tmpFile.replace(/\.rs$/, '.exe');
+      return { cmd: 'rustc', args: [tmpFile, '-o', outFile], outFile };
+    },
+    run: (tmpFile) => {
+      const outFile = tmpFile.replace(/\.rs$/, '.exe');
+      return { cmd: outFile, args: [] };
+    },
+  },
+  go: {
+    ext: 'go',
+    run: (tmpFile) => ({ cmd: 'go', args: ['run', tmpFile] }),
+  },
+  java: {
+    ext: 'java',
+    fileName: 'Main.java',
+    compile: (tmpFile) => {
+      const dir = path.dirname(tmpFile);
+      return { cmd: 'javac', args: [tmpFile, '-d', dir], outFile: null };
+    },
+    run: (tmpFile) => {
+      const dir = path.dirname(tmpFile);
+      return { cmd: 'java', args: ['-cp', dir, 'Main'] };
+    },
+  },
+  c: {
+    ext: 'c',
+    compile: (tmpFile) => {
+      const outFile = tmpFile.replace(/\.c$/, '.exe');
+      return { cmd: 'gcc', args: [tmpFile, '-o', outFile, '-lm'], outFile };
+    },
+    run: (tmpFile) => {
+      const outFile = tmpFile.replace(/\.c$/, '.exe');
+      return { cmd: outFile, args: [] };
+    },
+  },
+  cpp: {
+    ext: 'cpp',
+    compile: (tmpFile) => {
+      const outFile = tmpFile.replace(/\.cpp$/, '.exe');
+      return { cmd: 'g++', args: [tmpFile, '-o', outFile, '-lm'], outFile };
+    },
+    run: (tmpFile) => {
+      const outFile = tmpFile.replace(/\.cpp$/, '.exe');
+      return { cmd: outFile, args: [] };
+    },
+  },
 };
+
+/**
+ * Convert a Windows path to a Docker-compatible bind mount path.
+ * Docker Desktop for Windows with Linux containers expects forward slashes.
+ */
+function toDockerPath(winPath) {
+  return winPath.replace(/\\/g, '/');
+}
 
 async function isDockerAvailable() {
   try {
@@ -66,20 +152,19 @@ async function executeWithDocker(language, code, stdin = '') {
   try {
     fs.mkdirSync(execDir, { recursive: true });
     fs.writeFileSync(path.join(execDir, runner.file), code, 'utf8');
-    // Write stdin to file (empty string if no input provided)
     fs.writeFileSync(path.join(execDir, 'stdin.txt'), stdin, 'utf8');
 
     container = await docker.createContainer({
       Image: runner.image,
       Cmd: runner.cmd,
       HostConfig: {
-        Binds: [`${execDir}:/sandbox:ro`],
-        Tmpfs: { '/tmp': 'size=64m,exec' },
+        Binds: [`${toDockerPath(execDir)}:/sandbox:ro`],
+        Tmpfs: { '/tmp': HIGH_MEMORY_LANGS.has(language) ? 'size=256m,exec' : 'size=64m,exec' },
         NetworkMode: 'none',
-        Memory: 50 * 1024 * 1024,
-        MemorySwap: 50 * 1024 * 1024,
-        NanoCpus: 500000000,
-        PidsLimit: 50,
+        Memory: (HIGH_MEMORY_LANGS.has(language) ? 512 : 64) * 1024 * 1024,
+        MemorySwap: (HIGH_MEMORY_LANGS.has(language) ? 512 : 64) * 1024 * 1024,
+        NanoCpus: 1000000000,
+        PidsLimit: 64,
         OomKillDisable: false,
         AutoRemove: false,
       },
@@ -120,6 +205,175 @@ async function executeWithDocker(language, code, stdin = '') {
   }
 }
 
+/**
+ * Stream execution via Docker — calls onStdout/onStderr/onError/onExit callbacks
+ */
+async function streamWithDocker(language, code, stdin, { onStdout, onStderr, onError, onExit, onCleanup }) {
+  const { PassThrough } = require('stream');
+  const Docker = require('dockerode');
+  const docker = new Docker();
+  const runner = DOCKER_RUNNERS[language];
+
+  const execDir = path.join(TEMP_DIR, randomUUID());
+  let container = null;
+
+  try {
+    fs.mkdirSync(execDir, { recursive: true });
+    fs.writeFileSync(path.join(execDir, runner.file), code, 'utf8');
+    fs.writeFileSync(path.join(execDir, 'stdin.txt'), stdin, 'utf8');
+
+    const cleanup = () => {
+      fs.rmSync(execDir, { recursive: true, force: true });
+    };
+    onCleanup(cleanup);
+
+    container = await docker.createContainer({
+      Image: runner.image,
+      Cmd: runner.cmd,
+      HostConfig: {
+        Binds: [`${toDockerPath(execDir)}:/sandbox:ro`],
+        Tmpfs: { '/tmp': HIGH_MEMORY_LANGS.has(language) ? 'size=256m,exec' : 'size=64m,exec' },
+        NetworkMode: 'none',
+        Memory: (HIGH_MEMORY_LANGS.has(language) ? 512 : 64) * 1024 * 1024,
+        MemorySwap: (HIGH_MEMORY_LANGS.has(language) ? 512 : 64) * 1024 * 1024,
+        NanoCpus: 1000000000,
+        PidsLimit: 64,
+        OomKillDisable: false,
+        AutoRemove: false,
+      },
+    });
+
+    onCleanup(async () => {
+      try { await container.remove({ force: true }); } catch (_) {}
+    });
+
+    const logStream = await container.attach({ stream: true, stdout: true, stderr: true });
+    const stdoutPass = new PassThrough();
+    const stderrPass = new PassThrough();
+    docker.modem.demuxStream(logStream, stdoutPass, stderrPass);
+
+    stdoutPass.on('data', chunk => onStdout(chunk.toString('utf8')));
+    stderrPass.on('data', chunk => onStderr(chunk.toString('utf8')));
+
+    await container.start();
+
+    let timedOut = false;
+    const timeoutHandle = setTimeout(async () => {
+      timedOut = true;
+      onError(`Execution timed out (${TIMEOUT_MS / 1000}s limit)`);
+      onExit(124);
+      try { await container.kill(); } catch (_) {}
+    }, TIMEOUT_MS);
+
+    const exitData = await container.wait();
+    clearTimeout(timeoutHandle);
+
+    if (!timedOut) {
+      // Allow stream to flush remaining buffered data
+      await new Promise(r => setTimeout(r, 100));
+      onExit(exitData.StatusCode);
+    }
+
+  } catch (err) {
+    onError(err.message);
+    onExit(1);
+  }
+}
+
+/**
+ * Stream execution via child_process fallback
+ */
+async function streamWithFallback(language, code, stdin, { onStdout, onStderr, onError, onExit, onCleanup }) {
+  const runner = FALLBACK_RUNNERS[language];
+  if (!runner) {
+    onError(`Language "${language}" is not supported. No Docker and no local runtime available.`);
+    onExit(1);
+    return;
+  }
+
+  // Determine temp file path
+  const tmpBase = path.join(os.tmpdir(), `itecify_${randomUUID()}`);
+  let tmpFile;
+  if (runner.fileName) {
+    // For languages that need a specific filename (e.g., Java Main.java)
+    const tmpDir = tmpBase;
+    fs.mkdirSync(tmpDir, { recursive: true });
+    tmpFile = path.join(tmpDir, runner.fileName);
+    onCleanup(() => fs.rmSync(tmpDir, { recursive: true, force: true }));
+  } else {
+    tmpFile = `${tmpBase}.${runner.ext}`;
+    onCleanup(() => { try { fs.unlinkSync(tmpFile); } catch (_) {} });
+  }
+  fs.writeFileSync(tmpFile, code, 'utf8');
+
+  // Compile step if needed
+  if (runner.compile) {
+    const compileInfo = runner.compile(tmpFile);
+    if (compileInfo.outFile) {
+      onCleanup(() => { try { fs.unlinkSync(compileInfo.outFile); } catch (_) {} });
+    }
+
+    try {
+      await new Promise((resolve, reject) => {
+        const proc = spawn(compileInfo.cmd, compileInfo.args, {
+          env: { ...process.env },
+        });
+        let stderr = '';
+        proc.stderr.on('data', chunk => { stderr += chunk.toString('utf8'); });
+        proc.stdout.on('data', chunk => { onStderr(chunk.toString('utf8')); }); // compiler warnings to stderr
+        proc.on('close', (exitCode) => {
+          if (exitCode !== 0) {
+            reject(new Error(stderr || `Compilation failed with exit code ${exitCode}`));
+          } else {
+            resolve();
+          }
+        });
+        proc.on('error', (err) => {
+          reject(new Error(`Compiler "${compileInfo.cmd}" not found. Is it installed? (${err.message})`));
+        });
+      });
+    } catch (err) {
+      onStderr(err.message);
+      onExit(1);
+      return;
+    }
+  }
+
+  // Run step
+  const runInfo = runner.run(tmpFile);
+
+  const proc = spawn(runInfo.cmd, runInfo.args, {
+    env: { ...process.env, PYTHONUTF8: '1', PYTHONIOENCODING: 'utf-8' },
+  });
+
+  onCleanup(() => { try { proc.kill('SIGKILL'); } catch (_) {} });
+
+  proc.stdout.on('data', chunk => onStdout(chunk.toString('utf8')));
+  proc.stderr.on('data', chunk => onStderr(chunk.toString('utf8')));
+
+  if (proc.stdin) {
+    if (stdin) proc.stdin.write(stdin);
+    proc.stdin.end();
+  }
+
+  const timeoutHandle = setTimeout(() => {
+    proc.kill('SIGKILL');
+    onError(`Execution timed out (${TIMEOUT_MS / 1000}s limit)`);
+    onExit(124);
+  }, TIMEOUT_MS);
+
+  proc.on('close', (exitCode) => {
+    clearTimeout(timeoutHandle);
+    onExit(exitCode);
+  });
+
+  proc.on('error', (err) => {
+    clearTimeout(timeoutHandle);
+    onError(`Runtime "${runInfo.cmd}" not found. Is it installed? (${err.message})`);
+    onExit(1);
+  });
+}
+
 async function executeWithFallback(language, code, stdin = '') {
   const runner = FALLBACK_RUNNERS[language];
   if (!runner) {
@@ -130,40 +384,21 @@ async function executeWithFallback(language, code, stdin = '') {
     };
   }
 
-  const tmpFile = path.join(os.tmpdir(), `itecify_${randomUUID()}.${runner.ext}`);
-  fs.writeFileSync(tmpFile, code, 'utf8');
-
+  // Use the streaming fallback but collect results
   return new Promise((resolve) => {
     let stdoutData = '';
     let stderrData = '';
-    let finished = false;
+    let errorMsg = null;
 
-    const proc = spawn(runner.cmd, runner.args(tmpFile), {
-      env: { ...process.env, PYTHONUTF8: '1', PYTHONIOENCODING: 'utf-8' },
+    streamWithFallback(language, code, stdin, {
+      onStdout: (chunk) => { stdoutData += chunk; },
+      onStderr: (chunk) => { stderrData += chunk; },
+      onError: (msg) => { errorMsg = msg; },
+      onExit: () => {
+        resolve({ stdout: stdoutData, stderr: stderrData, error: errorMsg });
+      },
+      onCleanup: () => {},
     });
-
-    const finish = (error = null) => {
-      if (finished) return;
-      finished = true;
-      try { fs.unlinkSync(tmpFile); } catch (_) {}
-      resolve({ stdout: stdoutData, stderr: stderrData, error });
-    };
-
-    proc.stdout.on('data', chunk => { stdoutData += chunk.toString('utf8'); });
-    proc.stderr.on('data', chunk => { stderrData += chunk.toString('utf8'); });
-    proc.on('close', () => finish());
-    proc.on('error', err => finish(err.message));
-
-    // Write stdin and close it (guard against null stdin on spawn failure)
-    if (proc.stdin) {
-      if (stdin) proc.stdin.write(stdin);
-      proc.stdin.end();
-    }
-
-    setTimeout(() => {
-      proc.kill('SIGKILL');
-      finish('Execution timed out (>5s)');
-    }, 5000);
   });
 }
 
@@ -181,4 +416,24 @@ async function executeCode(language, code, stdin = '') {
   return executeWithFallback(language, code, stdin);
 }
 
-module.exports = { executeCode };
+/**
+ * Execute code and stream output via callbacks.
+ * Used by the SSE streaming endpoint.
+ */
+async function executeCodeStream(language, code, stdin, callbacks) {
+  if (!DOCKER_RUNNERS[language] && !FALLBACK_RUNNERS[language]) {
+    callbacks.onError(`Unsupported language: ${language}`);
+    callbacks.onExit(1);
+    return;
+  }
+
+  const dockerOk = await isDockerAvailable();
+
+  if (dockerOk && DOCKER_RUNNERS[language]) {
+    return streamWithDocker(language, code, stdin, callbacks);
+  }
+
+  return streamWithFallback(language, code, stdin, callbacks);
+}
+
+module.exports = { executeCode, executeCodeStream, isDockerAvailable };

@@ -11,6 +11,7 @@ import KonamiExplosion from './components/KonamiExplosion'
 import { useKonamiCode } from './hooks/useKonamiCode'
 import { useAuth } from './hooks/useAuth'
 import { useProjectFiles } from './hooks/useProjectFiles'
+import supabase from './lib/supabase'
 import { getUserProjects } from './lib/sessionApi'
 import { useProjectMembers } from './hooks/useProjectMembers'
 import { useRealtimeEditor, type ConnectedUser } from './hooks/useRealtimeEditor'
@@ -186,6 +187,8 @@ function EditorPage({ externalProjectId, onProjectName }: { externalProjectId?: 
   const { user, session, signOut } = useAuth()
   const [timeTravelContent, setTimeTravelContent] = useState<string | null>(null)
   const [userProjects, setUserProjects] = useState<Array<{ id: string; name: string }>>([])
+  const [aiPendingInsert, setAiPendingInsert] = useState<{ decorationIds: string[]; preInsertContent: string } | null>(null)
+  const aiDecorationIdsRef = useRef<string[]>([])
 
   useEffect(() => {
     if (!user?.id) return
@@ -259,6 +262,13 @@ function EditorPage({ externalProjectId, onProjectName }: { externalProjectId?: 
   const handleSelectFile = (idOrName: string) => {
     setActiveFileId(idOrName)
     setOpenFileIds(prev => prev.includes(idOrName) ? prev : [...prev, idOrName])
+  }
+
+  const handleDeleteFile = async (fileId: string) => {
+    const { error } = await supabase.from('files').delete().eq('id', fileId)
+    if (error) { console.error('[handleDeleteFile]', error); return }
+    setOpenFileIds(prev => prev.filter(id => id !== fileId))
+    setActiveFileId(prev => prev === fileId ? '' : prev)
   }
 
   // Restore personal code for the newly selected file
@@ -419,6 +429,7 @@ function EditorPage({ externalProjectId, onProjectName }: { externalProjectId?: 
           onSelectFile={handleSelectFile}
           loading={filesLoading}
           onCreateFile={addFile}
+          onDeleteFile={handleDeleteFile}
           onRestoreDefaults={restoreDefaults}
           members={members}
           onlineUserIds={connectedUsers.map(u => u.userId)}
@@ -584,6 +595,55 @@ function EditorPage({ externalProjectId, onProjectName }: { externalProjectId?: 
             )}
         </div>
 
+        {/* AI Insert banner */}
+        {aiPendingInsert && (
+          <div style={{
+            flexShrink: 0,
+            display: 'flex', alignItems: 'center', gap: '10px',
+            padding: '6px 16px',
+            background: 'rgba(139,92,246,0.1)',
+            borderBottom: '1px solid rgba(139,92,246,0.3)',
+            fontSize: '11px', fontFamily: 'monospace',
+            animation: 'ai-slide-in 0.2s ease both',
+          }}>
+            <span style={{ color: '#a78bfa', letterSpacing: '0.06em' }}>✦ AI-generated code</span>
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: '6px' }}>
+            <button
+              onClick={() => {
+                // Accept — keep code and highlight, just close banner
+                setAiPendingInsert(null)
+              }}
+              style={{
+                padding: '2px 10px', fontSize: '11px', fontWeight: 700, fontFamily: 'monospace',
+                background: 'rgba(52,211,153,0.2)', border: '1px solid rgba(52,211,153,0.5)',
+                borderRadius: '5px', color: '#34d399', cursor: 'pointer',
+              }}
+            >✓ Accept</button>
+            <button
+              onClick={() => {
+                // Reject — restore pre-insert content and clear decorations
+                const editor = monacoEditorRef.current
+                if (editor) {
+                  const model = editor.getModel()
+                  if (model) {
+                    const fullRange = model.getFullModelRange()
+                    editor.executeEdits('ai-reject', [{ range: fullRange, text: aiPendingInsert.preInsertContent }])
+                  }
+                  editor.deltaDecorations(aiDecorationIdsRef.current, [])
+                  aiDecorationIdsRef.current = []
+                }
+                setAiPendingInsert(null)
+              }}
+              style={{
+                padding: '2px 10px', fontSize: '11px', fontWeight: 700, fontFamily: 'monospace',
+                background: 'rgba(248,113,113,0.15)', border: '1px solid rgba(248,113,113,0.4)',
+                borderRadius: '5px', color: '#f87171', cursor: 'pointer',
+              }}
+            >✕ Reject</button>
+            </div>
+          </div>
+        )}
+
         {/* Editor area */}
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           {activeFileId && activeFile ? (
@@ -597,7 +657,32 @@ function EditorPage({ externalProjectId, onProjectName }: { externalProjectId?: 
                 onUsersChange={setConnectedUsers}
                 timeTravelContent={timeTravelContent}
                 currentUserId={user?.id}
-                onEditorMount={(editor) => { monacoEditorRef.current = editor }}
+                onEditorMount={(editor) => {
+                  monacoEditorRef.current = editor
+                  editor.onDidChangeModelContent((event) => {
+                    if (aiDecorationIdsRef.current.length === 0) return
+                    const model = editor.getModel()
+                    if (!model) return
+                    // Find which AI decoration IDs overlap with the changed lines
+                    const idsToRemove: string[] = []
+                    for (const change of event.changes) {
+                      const changedStart = change.range.startLineNumber
+                      const changedEnd = change.range.endLineNumber
+                      for (const id of aiDecorationIdsRef.current) {
+                        const decorRange = model.getDecorationRange(id)
+                        if (!decorRange) continue
+                        if (decorRange.startLineNumber <= changedEnd && decorRange.endLineNumber >= changedStart) {
+                          idsToRemove.push(id)
+                        }
+                      }
+                    }
+                    if (idsToRemove.length === 0) return
+                    editor.deltaDecorations(idsToRemove, [])
+                    const remaining = aiDecorationIdsRef.current.filter(id => !idsToRemove.includes(id))
+                    aiDecorationIdsRef.current = remaining
+                    if (remaining.length === 0) setAiPendingInsert(null)
+                  })
+                }}
                 onSaveSnapshotNow={(fn) => { saveSnapshotNowRef.current = fn }}
               />
             ) : (
@@ -718,9 +803,26 @@ function EditorPage({ externalProjectId, onProjectName }: { externalProjectId?: 
         insertCode={(code: string) => {
           const editor = monacoEditorRef.current
           if (!editor) return
+          const preInsertContent = editor.getValue()
           const selection = editor.getSelection()
           const range = selection ?? { startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 1 }
           editor.executeEdits('ai-insert', [{ range, text: code }])
+
+          // Calculate inserted line range
+          const startLine = range.startLineNumber
+          const insertedLineCount = code.split('\n').length
+          const endLine = startLine + insertedLineCount - 1
+
+          // Clear previous AI decorations, apply new ones
+          const oldIds = aiDecorationIdsRef.current
+          const newIds = editor.deltaDecorations(oldIds,
+            Array.from({ length: endLine - startLine + 1 }, (_, i) => ({
+              range: { startLineNumber: startLine + i, startColumn: 1, endLineNumber: startLine + i, endColumn: 1 },
+              options: { isWholeLine: true, className: 'ai-inserted-line', linesDecorationsClassName: 'ai-inserted-glyph' },
+            }))
+          )
+          aiDecorationIdsRef.current = newIds
+          setAiPendingInsert({ decorationIds: newIds, preInsertContent })
           editor.focus()
         }}
       />
@@ -746,6 +848,14 @@ function EditorPage({ externalProjectId, onProjectName }: { externalProjectId?: 
         @keyframes toast-in {
           from { opacity: 0; transform: translateX(40px); }
           to   { opacity: 1; transform: translateX(0); }
+        }
+        .ai-inserted-line {
+          background: rgba(139,92,246,0.13) !important;
+        }
+        .ai-inserted-glyph {
+          background: #8b5cf6 !important;
+          width: 3px !important;
+          margin-left: 3px;
         }
       `}</style>
     </div>
