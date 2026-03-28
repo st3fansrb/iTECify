@@ -34,6 +34,28 @@ const DANGEROUS_PATTERNS = {
     { pattern: /\bnew\s+Socket\s*\(/, severity: 'high', message: 'Network socket detected' },
     { pattern: /\bReflection|\.forName\s*\(/, severity: 'medium', message: 'Reflection API detected' },
   ],
+  c: [
+    { pattern: /\bsystem\s*\(/, severity: 'high', message: 'system() detected — shell command execution risk' },
+    { pattern: /\bexecvp?\s*\(|execle?\s*\(|execve?\s*\(/, severity: 'high', message: 'exec() family detected — process execution risk' },
+    { pattern: /\bpopen\s*\(/, severity: 'high', message: 'popen() detected — command execution risk' },
+    { pattern: /fopen\s*\(\s*"\/etc\//, severity: 'high', message: 'Attempting to read system files' },
+    { pattern: /\bfork\s*\(/, severity: 'medium', message: 'fork() detected — process forking' },
+  ],
+  cpp: [
+    { pattern: /\bstd::system\s*\(|\bsystem\s*\(/, severity: 'high', message: 'system() detected — shell command execution risk' },
+    { pattern: /\bexecvp?\s*\(|execle?\s*\(|execve?\s*\(/, severity: 'high', message: 'exec() family detected — process execution risk' },
+    { pattern: /\bpopen\s*\(/, severity: 'high', message: 'popen() detected — command execution risk' },
+    { pattern: /std::filesystem|<filesystem>/, severity: 'medium', message: 'Filesystem access detected' },
+    { pattern: /\bfork\s*\(/, severity: 'medium', message: 'fork() detected — process forking' },
+  ],
+  typescript: [
+    { pattern: /require\s*\(\s*['"]child_process['"]\s*\)/, severity: 'high', message: 'child_process module detected — potential system command execution' },
+    { pattern: /require\s*\(\s*['"]fs['"]\s*\)/, severity: 'medium', message: 'fs module detected — file system access' },
+    { pattern: /require\s*\(\s*['"]net['"]\s*\)/, severity: 'high', message: 'net module detected — network access attempt' },
+    { pattern: /\beval\s*\(/, severity: 'high', message: 'eval() detected — arbitrary code execution risk' },
+    { pattern: /process\.exit/, severity: 'medium', message: 'process.exit detected — may terminate the sandbox' },
+    { pattern: /process\.env/, severity: 'low', message: 'process.env access detected — environment variable leak risk' },
+  ],
 };
 
 /**
