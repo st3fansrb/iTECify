@@ -21,7 +21,7 @@ import supabase from '../lib/supabase'
 const DEBOUNCE_MS = 500
 
 export interface UseRealtimeEditorOptions {
-  projectId: string
+  projectId?: string
   fileId: string
   /** Used as the initial code value while the DB fetch is in flight. */
   initialContent: string
@@ -117,7 +117,7 @@ export function useRealtimeEditor({
         }
       }
 
-      const channel = supabase.channel(`project-${projectId}`)
+      const channel = supabase.channel(projectId ? `project-${projectId}` : `file-${fileId}`)
       channelToClean = channel
       channelRef.current = channel
 
@@ -125,7 +125,7 @@ export function useRealtimeEditor({
         // All file UPDATE events for this project — filter to active file client-side
         .on(
           'postgres_changes',
-          { event: '*', schema: 'public', table: 'files', filter: `project_id=eq.${projectId}` },
+          { event: '*', schema: 'public', table: 'files', ...(projectId ? { filter: `project_id=eq.${projectId}` } : { filter: `id=eq.${fileId}` }) },
           (payload) => {
             const updated = payload.new as { id: string; content: string; updated_by: string | null }
             if (updated.id !== fileId) return

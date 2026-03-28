@@ -1,14 +1,9 @@
 /**
- * ConnectedUsers — shows avatar dots for each collaborator currently viewing the file.
- * Pulls display_name + avatar_color from the `profiles` table via useProfile.
+ * ConnectedUsers — shows avatar dots for each collaborator currently in the room.
+ * Uses displayName + avatarColor from the presence payload (no extra DB fetch needed).
  */
 
-import { useProfile } from '../hooks/useProfile'
-
-interface ConnectedUser {
-  user_id: string
-  cursor_line: number | null
-}
+import type { ConnectedUser } from '../hooks/useRealtimeEditor'
 
 interface ConnectedUsersProps {
   users: ConnectedUser[]
@@ -17,14 +12,12 @@ interface ConnectedUsersProps {
 
 const FALLBACK_COLORS = ['#f472b6', '#818cf8', '#34d399', '#fb923c', '#38bdf8']
 
-function UserDot({ userId, index, isSelf }: { userId: string; index: number; isSelf: boolean }) {
-  const { profile } = useProfile(userId)
-
-  const color = profile?.avatar_color ?? FALLBACK_COLORS[index % FALLBACK_COLORS.length]
-  const label = profile?.display_name
-    ? profile.display_name.slice(0, 2).toUpperCase()
-    : userId.slice(0, 2).toUpperCase()
-  const title = profile?.display_name ?? userId.slice(0, 8)
+function UserDot({ user, index, isSelf }: { user: ConnectedUser; index: number; isSelf: boolean }) {
+  const color = user.avatarColor ?? FALLBACK_COLORS[index % FALLBACK_COLORS.length]
+  const label = user.displayName
+    ? user.displayName.slice(0, 2).toUpperCase()
+    : user.userId.slice(0, 2).toUpperCase()
+  const title = user.displayName ?? user.userId.slice(0, 8)
 
   return (
     <div
@@ -79,10 +72,10 @@ export default function ConnectedUsers({ users, currentUserId }: ConnectedUsersP
       <div style={{ display: 'flex', alignItems: 'center' }}>
         {users.map((u, i) => (
           <UserDot
-            key={u.user_id}
-            userId={u.user_id}
+            key={u.userId}
+            user={u}
             index={i}
-            isSelf={u.user_id === currentUserId}
+            isSelf={u.userId === currentUserId}
           />
         ))}
       </div>

@@ -1,27 +1,44 @@
 import Editor, { type OnMount } from '@monaco-editor/react'
-import type * as monaco from 'monaco-editor'
-
-interface ConnectedUser {
-  user_id: string
-  cursor_line: number | null
-}
+import type * as monacoType from 'monaco-editor'
+import { useRef, useEffect } from 'react'
+import type { ConnectedUser } from '../hooks/useRealtimeEditor'
 
 interface CodeEditorProps {
   language: string
   value: string
   onChange: (value: string) => void
-  onEditorMount?: (editor: monaco.editor.IStandaloneCodeEditor) => void
+  onEditorMount?: (editor: monacoType.editor.IStandaloneCodeEditor) => void
   connectedUsers?: ConnectedUser[]
   onCursorChange?: (line: number | null) => void
   readOnly?: boolean
+  currentUserId?: string | null
 }
 
-const CURSOR_COLORS = ['#f472b6', '#818cf8', '#34d399', '#fb923c', '#38bdf8']
+const FALLBACK_COLORS = ['#f472b6', '#818cf8', '#34d399', '#fb923c', '#38bdf8']
 
-export default function CodeEditor({ language, value, onChange, onEditorMount, connectedUsers = [], onCursorChange, readOnly = false }: CodeEditorProps) {
-  const decorationsRef = { current: [] as string[] }
+function hexToRgba(hex: string, alpha: number): string {
+  const clean = hex.replace('#', '')
+  const r = parseInt(clean.slice(0, 2), 16)
+  const g = parseInt(clean.slice(2, 4), 16)
+  const b = parseInt(clean.slice(4, 6), 16)
+  if (isNaN(r) || isNaN(g) || isNaN(b)) return `rgba(244,114,182,${alpha})`
+  return `rgba(${r},${g},${b},${alpha})`
+}
+
+export default function CodeEditor({
+  language, value, onChange, onEditorMount,
+  connectedUsers = [], onCursorChange, readOnly = false, currentUserId,
+}: CodeEditorProps) {
+  const editorRef = useRef<monacoType.editor.IStandaloneCodeEditor | null>(null)
+  const monacoRef = useRef<typeof monacoType | null>(null)
+  const decorationIdsRef = useRef<string[]>([])
+  const widgetListRef = useRef<monacoType.editor.IContentWidget[]>([])
+  const styleTagRef = useRef<HTMLStyleElement | null>(null)
 
   const handleMount: OnMount = (editor, monacoInstance) => {
+    editorRef.current = editor
+    monacoRef.current = monacoInstance
+
     monacoInstance.editor.defineTheme('itecify', {
       base: 'vs-dark',
       inherit: true,
@@ -36,7 +53,6 @@ export default function CodeEditor({ language, value, onChange, onEditorMount, c
     })
     monacoInstance.editor.setTheme('itecify')
 
-    // Broadcast cursor line changes
     if (onCursorChange) {
       editor.onDidChangeCursorPosition((e) => {
         onCursorChange(e.position.lineNumber)
@@ -45,6 +61,103 @@ export default function CodeEditor({ language, value, onChange, onEditorMount, c
 
     onEditorMount?.(editor)
   }
+
+  // ── Remote cursor decorations + contentWidgets ────────────────────────────────
+  useEffect(() => {
+    const editor = editorRef.current
+    const monaco = monacoRef.current
+    if (!editor || !monaco) return
+
+    // Remove old widgets
+    widgetListRef.current.forEach(w => {
+      try { editor.removeContentWidget(w) } catch (_) {}
+    })
+    widgetListRef.current = []
+
+    // Remote users with a known cursor, excluding self
+    const remote = connectedUsers.filter(
+      u => u.cursor !== null && u.userId !== currentUserId
+    )
+
+    // Build CSS for line backgrounds and inject into <head>
+    const css = remote.map((u, i) => {
+      const color = u.avatarColor ?? FALLBACK_COLORS[i % FALLBACK_COLORS.length]
+      const safeId = u.userId.replace(/[^a-zA-Z0-9]/g, '')
+      return `.rcursor-${safeId} { background-color: ${hexToRgba(color, 0.18)} !important; border-left: 3px solid ${color} !important; }`
+    }).join('\n')
+
+    if (!styleTagRef.current) {
+      styleTagRef.current = document.createElement('style')
+      styleTagRef.current.id = 'itecify-remote-cursors'
+      document.head.appendChild(styleTagRef.current)
+    }
+    styleTagRef.current.textContent = css
+
+    // Apply line decorations
+    const decorations: monacoType.editor.IModelDeltaDecoration[] = remote.map((u, i) => {
+      const color = u.avatarColor ?? FALLBACK_COLORS[i % FALLBACK_COLORS.length]
+      const safeId = u.userId.replace(/[^a-zA-Z0-9]/g, '')
+      return {
+        range: new monaco.Range(u.cursor!, 1, u.cursor!, 1),
+        options: {
+          isWholeLine: true,
+          className: `rcursor-${safeId}`,
+          overviewRulerColor: color,
+          overviewRulerLane: monaco.editor.OverviewRulerLane.Right,
+        },
+      }
+    })
+    decorationIdsRef.current = editor.deltaDecorations(decorationIdsRef.current, decorations)
+
+    // Add username label widgets above each cursor line
+    remote.forEach((u, i) => {
+      const color = u.avatarColor ?? FALLBACK_COLORS[i % FALLBACK_COLORS.length]
+      const label = u.displayName ?? u.userId.slice(0, 6)
+      const line = u.cursor!
+
+      const dom = document.createElement('div')
+      dom.style.cssText = [
+        `background:${color}`,
+        `color:#0f0c29`,
+        `font-size:10px`,
+        `font-weight:700`,
+        `font-family:JetBrains Mono,Fira Code,monospace`,
+        `padding:1px 7px`,
+        `border-radius:3px`,
+        `pointer-events:none`,
+        `white-space:nowrap`,
+        `user-select:none`,
+        `line-height:16px`,
+        `opacity:0.92`,
+        `margin-bottom:1px`,
+        `display:inline-block`,
+      ].join(';')
+      dom.textContent = label
+
+      const widget: monacoType.editor.IContentWidget = {
+        getId: () => `rcursor-widget-${u.userId}`,
+        getDomNode: () => dom,
+        getPosition: () => ({
+          position: { lineNumber: line, column: 1 },
+          preference: [
+            monaco.editor.ContentWidgetPositionPreference.ABOVE,
+            monaco.editor.ContentWidgetPositionPreference.BELOW,
+          ],
+        }),
+      }
+
+      editor.addContentWidget(widget)
+      widgetListRef.current.push(widget)
+    })
+  }, [connectedUsers, currentUserId])
+
+  // Clean up style tag on unmount
+  useEffect(() => {
+    return () => {
+      styleTagRef.current?.remove()
+      styleTagRef.current = null
+    }
+  }, [])
 
   return (
     <div style={{ flex: 1, height: '100%', overflow: 'hidden', position: 'relative' }}>
@@ -69,30 +182,6 @@ export default function CodeEditor({ language, value, onChange, onEditorMount, c
           readOnly,
         }}
       />
-
-      {/* Remote cursor indicators — overlay badges */}
-      {connectedUsers.filter(u => u.cursor_line !== null).map((u, i) => (
-        <div
-          key={u.user_id}
-          style={{
-            position: 'absolute',
-            right: '8px',
-            top: `${56 + (i * 22)}px`,
-            background: CURSOR_COLORS[i % CURSOR_COLORS.length],
-            color: '#0f0c29',
-            fontSize: '10px',
-            fontWeight: 700,
-            padding: '2px 7px',
-            borderRadius: '10px',
-            fontFamily: 'monospace',
-            pointerEvents: 'none',
-            zIndex: 10,
-            opacity: 0.88,
-          }}
-        >
-          L{u.cursor_line} · {u.user_id.slice(0, 6)}
-        </div>
-      ))}
     </div>
   )
 }
