@@ -43,8 +43,9 @@ type Database = {
     Tables: {
       projects: {
         Row: Project
-        Insert: { id?: string; name: string; created_at?: string; owner_id?: string }
+        Insert: { id?: string; name: string; created_at?: string; owner_id?: string; invite_code?: string | null }
         Update: Partial<Project>
+        Relationships: []
       }
       files: {
         Row: File
@@ -58,21 +59,37 @@ type Database = {
           updated_by?: string | null
         }
         Update: Partial<File>
+        Relationships: []
       }
       profiles: {
         Row: Profile
         Insert: { id: string; display_name?: string; avatar_color?: string; updated_at?: string }
         Update: Partial<Omit<Profile, 'id'>>
+        Relationships: []
       }
       file_history: {
         Row: FileHistoryEntry
         Insert: { id?: string; file_id: string; content: string; saved_by?: string | null; saved_at?: string }
-        Update: never
+        Update: Record<string, never>
+        Relationships: []
+      }
+      project_members: {
+        Row: { project_id: string; user_id: string; role: 'owner' | 'member'; joined_at: string }
+        Insert: { project_id: string; user_id: string; role?: 'owner' | 'member'; joined_at?: string }
+        Update: { role?: 'owner' | 'member' }
+        Relationships: []
+      }
+      invitations: {
+        Row: { id: string; project_id: string; invited_email: string; invited_by: string; status: 'pending' | 'accepted' | 'rejected'; created_at: string }
+        Insert: { id?: string; project_id: string; invited_email: string; invited_by: string; status?: 'pending' | 'accepted' | 'rejected'; created_at?: string }
+        Update: { status?: 'pending' | 'accepted' | 'rejected' }
+        Relationships: []
       }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
     Enums: Record<string, never>
+    CompositeTypes: Record<string, never>
   }
 }
 
