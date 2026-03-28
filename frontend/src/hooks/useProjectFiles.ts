@@ -18,6 +18,17 @@ import supabase from '../lib/supabase'
 
 const DEMO_PROJECT_NAME = 'iTECify Demo'
 
+const STARTER_CONTENT: Record<string, string> = {
+  python:     '# Python\nprint("Hello from iTECify!")\n',
+  javascript: '// JavaScript\nconsole.log("Hello from iTECify!");\n',
+  typescript: '// TypeScript\nconst msg: string = "Hello from iTECify!";\nconsole.log(msg);\n',
+  rust:       '// Rust\nfn main() {\n    println!("Hello from iTECify!");\n}\n',
+  go:         '// Go\npackage main\n\nimport "fmt"\n\nfunc main() {\n    fmt.Println("Hello from iTECify!")\n}\n',
+  java:       '// Java\npublic class Main {\n    public static void main(String[] args) {\n        System.out.println("Hello from iTECify!");\n    }\n}\n',
+  c:          '// C\n#include <stdio.h>\n\nint main() {\n    printf("Hello from iTECify!\\n");\n    return 0;\n}\n',
+  cpp:        '// C++\n#include <iostream>\n\nint main() {\n    std::cout << "Hello from iTECify!" << std::endl;\n    return 0;\n}\n',
+}
+
 const DEFAULT_FILES = [
   { name: 'main.py',   language: 'python',     content: '# Python\nprint("Hello from iTECify!")\n' },
   { name: 'index.js',  language: 'javascript',  content: '// JavaScript\nconsole.log("Hello from iTECify!");\n' },
@@ -35,6 +46,7 @@ export interface UseProjectFilesReturn {
   loading: boolean
   error: string | null
   addFile: (name: string, language: string) => Promise<void>
+  restoreDefaults: () => Promise<void>
   projectId: string
 }
 
@@ -120,9 +132,10 @@ export function useProjectFiles(): UseProjectFilesReturn {
   const addFile = useCallback(async (name: string, language: string) => {
     const pid = projectIdRef.current
     if (!pid) return
+    const content = STARTER_CONTENT[language] ?? `// ${name}\n`
     const { data, error: insertErr } = await supabase
       .from('files')
-      .insert({ name, language, content: '', project_id: pid })
+      .insert({ name, language, content, project_id: pid })
       .select('id, name, language')
       .single()
     if (!insertErr && data) {
@@ -130,5 +143,23 @@ export function useProjectFiles(): UseProjectFilesReturn {
     }
   }, [])
 
-  return { files, loading, error, addFile, projectId }
+  // Re-seeds the 3 default files if they were accidentally deleted
+  const restoreDefaults = useCallback(async () => {
+    const pid = projectIdRef.current
+    if (!pid) return
+    const { data: existing } = await supabase
+      .from('files')
+      .select('name')
+      .eq('project_id', pid)
+    const existingNames = new Set((existing ?? []).map((f: { name: string }) => f.name))
+    const missing = DEFAULT_FILES.filter(f => !existingNames.has(f.name))
+    if (missing.length === 0) return
+    const { data: created } = await supabase
+      .from('files')
+      .insert(missing.map(f => ({ ...f, project_id: pid })))
+      .select('id, name, language')
+    if (created) setFiles(prev => [...prev, ...created])
+  }, [])
+
+  return { files, loading, error, addFile, restoreDefaults, projectId }
 }

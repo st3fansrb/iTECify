@@ -123,7 +123,7 @@ function RealtimeEditor({
 }
 
 function EditorPage() {
-  const { files, loading: filesLoading, addFile, projectId } = useProjectFiles()
+  const { files, loading: filesLoading, addFile, restoreDefaults, projectId } = useProjectFiles()
   const { outputs, broadcast, clearOutputs } = useSharedTerminal(projectId)
   const { personalOutputs, addPersonalEntry, clearPersonalOutputs } = usePersonalTerminal()
 
@@ -325,7 +325,7 @@ function EditorPage() {
         background: 'rgba(15,12,41,0.6)',
         backdropFilter: 'blur(24px)',
       }}>
-        <Sidebar files={files} activeFile={activeFileId} onSelectFile={setActiveFileId} loading={filesLoading} onCreateFile={addFile} />
+        <Sidebar files={files} activeFile={activeFileId} onSelectFile={setActiveFileId} loading={filesLoading} onCreateFile={addFile} onRestoreDefaults={restoreDefaults} />
       </div>
 
       {/* Sidebar toggle button */}

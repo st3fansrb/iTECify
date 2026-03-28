@@ -13,22 +13,13 @@ interface SidebarProps {
   onSelectFile: (idOrName: string) => void
   loading?: boolean
   onCreateFile?: (name: string, language: string) => void
+  onRestoreDefaults?: () => void
 }
 
 const EXT_TO_LANG: Record<string, string> = {
-  py: 'python',
-  js: 'javascript',
-  ts: 'typescript',
-  tsx: 'typescript',
-  jsx: 'javascript',
-  rs: 'rust',
-  c: 'c',
-  cpp: 'cpp',
-  go: 'go',
-  md: 'markdown',
-  json: 'json',
-  css: 'css',
-  html: 'html',
+  py: 'python', js: 'javascript', ts: 'typescript', tsx: 'typescript',
+  jsx: 'javascript', rs: 'rust', c: 'c', cpp: 'cpp', go: 'go',
+  java: 'java', md: 'markdown', json: 'json', css: 'css', html: 'html',
 }
 
 function guessLanguage(filename: string): string {
@@ -37,17 +28,29 @@ function guessLanguage(filename: string): string {
 }
 
 const EXT_BADGE: Record<string, { label: string; bg: string; color: string }> = {
-  js:  { label: 'JS',  bg: '#f7df1e', color: '#000' },
-  jsx: { label: 'JS',  bg: '#f7df1e', color: '#000' },
-  py:  { label: 'PY',  bg: '#3776ab', color: '#fff' },
-  rs:  { label: 'RS',  bg: '#ce422b', color: '#fff' },
-  ts:  { label: 'TS',  bg: '#3178c6', color: '#fff' },
-  tsx: { label: 'TS',  bg: '#3178c6', color: '#fff' },
-  go:  { label: 'GO',  bg: '#00acd7', color: '#fff' },
-  c:   { label: 'C',   bg: '#555597', color: '#fff' },
-  cpp: { label: 'C++', bg: '#004283', color: '#fff' },
-  md:  { label: 'MD',  bg: '#555',    color: '#fff' },
+  js:   { label: 'JS',  bg: '#f7df1e', color: '#000' },
+  jsx:  { label: 'JS',  bg: '#f7df1e', color: '#000' },
+  py:   { label: 'PY',  bg: '#3776ab', color: '#fff' },
+  rs:   { label: 'RS',  bg: '#ce422b', color: '#fff' },
+  ts:   { label: 'TS',  bg: '#3178c6', color: '#fff' },
+  tsx:  { label: 'TS',  bg: '#3178c6', color: '#fff' },
+  go:   { label: 'GO',  bg: '#00acd7', color: '#fff' },
+  java: { label: 'JV',  bg: '#f89820', color: '#000' },
+  c:    { label: 'C',   bg: '#555597', color: '#fff' },
+  cpp:  { label: 'C++', bg: '#004283', color: '#fff' },
+  md:   { label: 'MD',  bg: '#555',    color: '#fff' },
 }
+
+const FILE_TYPES = [
+  { label: 'Python',     ext: 'py',   defaultName: 'main.py',   bg: '#3776ab', color: '#fff' },
+  { label: 'JavaScript', ext: 'js',   defaultName: 'index.js',  bg: '#f7df1e', color: '#000' },
+  { label: 'TypeScript', ext: 'ts',   defaultName: 'index.ts',  bg: '#3178c6', color: '#fff' },
+  { label: 'Rust',       ext: 'rs',   defaultName: 'main.rs',   bg: '#ce422b', color: '#fff' },
+  { label: 'Go',         ext: 'go',   defaultName: 'main.go',   bg: '#00acd7', color: '#fff' },
+  { label: 'Java',       ext: 'java', defaultName: 'Main.java', bg: '#f89820', color: '#000' },
+  { label: 'C',          ext: 'c',    defaultName: 'main.c',    bg: '#555597', color: '#fff' },
+  { label: 'C++',        ext: 'cpp',  defaultName: 'main.cpp',  bg: '#004283', color: '#fff' },
+]
 
 function FileBadge({ filename }: { filename: string }) {
   const ext = filename.split('.').pop()?.toLowerCase() ?? ''
@@ -66,20 +69,36 @@ function FileBadge({ filename }: { filename: string }) {
   )
 }
 
-export default function Sidebar({ files, activeFile, onSelectFile, loading, onCreateFile }: SidebarProps) {
+export default function Sidebar({ files, activeFile, onSelectFile, loading, onCreateFile, onRestoreDefaults }: SidebarProps) {
   const navigate = useNavigate()
   const [expanded, setExpanded] = useState(true)
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const handleNewFileSubmit = (e: React.FormEvent) => {
+  const openCreate = () => {
+    setCreating(true)
+    setExpanded(true)
+    setNewName('')
+    setTimeout(() => inputRef.current?.focus(), 50)
+  }
+
+  const handleTypeClick = (ext: string, defaultName: string) => {
+    const lang = guessLanguage(defaultName)
+    const name = newName.trim() || defaultName
+    const finalName = name.includes('.') ? name : `${name}.${ext}`
+    onCreateFile?.(finalName, lang)
+    setCreating(false)
+    setNewName('')
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     const name = newName.trim()
-    if (!name) { setCreating(false); setNewName(''); return }
+    if (!name) { setCreating(false); return }
     onCreateFile?.(name, guessLanguage(name))
-    setNewName('')
     setCreating(false)
+    setNewName('')
   }
 
   return (
@@ -97,8 +116,7 @@ export default function Sidebar({ files, activeFile, onSelectFile, loading, onCr
             borderBottom: '1px solid rgba(255,255,255,0.1)',
             color: 'rgba(249,168,212,0.6)', fontSize: '13px',
             cursor: 'pointer', textAlign: 'left',
-            fontFamily: 'monospace',
-            transition: 'color 0.2s',
+            fontFamily: 'monospace', transition: 'color 0.2s',
           }}
           onMouseEnter={e => { e.currentTarget.style.color = '#f9a8d4' }}
           onMouseLeave={e => { e.currentTarget.style.color = 'rgba(249,168,212,0.6)' }}
@@ -109,7 +127,7 @@ export default function Sidebar({ files, activeFile, onSelectFile, loading, onCr
 
       {/* Explorer */}
       <div className="flex-1 overflow-y-auto">
-        {/* Section header with + button */}
+        {/* Section header */}
         <div className="flex items-center px-3 py-1.5">
           <button
             className="flex items-center gap-1 text-slate-400 text-xs uppercase tracking-widest hover:text-white flex-1"
@@ -121,16 +139,97 @@ export default function Sidebar({ files, activeFile, onSelectFile, loading, onCr
             <button
               title="New file"
               className="text-slate-500 hover:text-pink-300 text-base leading-none px-1 transition-colors"
-              onClick={() => { setCreating(true); setExpanded(true); setTimeout(() => inputRef.current?.focus(), 50) }}
+              onClick={openCreate}
             >
               +
             </button>
           )}
         </div>
 
-        {loading && (
-          <p className="px-6 py-2 text-xs text-slate-500">Loading files…</p>
+        {/* New file panel */}
+        {creating && (
+          <div style={{
+            margin: '4px 8px 8px',
+            background: 'rgba(15,12,41,0.8)',
+            border: '1px solid rgba(236,72,153,0.25)',
+            borderRadius: '10px',
+            padding: '10px',
+          }}>
+            <p style={{ fontSize: '10px', color: 'rgba(249,168,212,0.5)', fontFamily: 'monospace', marginBottom: '8px', letterSpacing: '0.06em' }}>
+              NEW FILE
+            </p>
+
+            {/* Filename input */}
+            <form onSubmit={handleSubmit} style={{ marginBottom: '10px' }}>
+              <input
+                ref={inputRef}
+                value={newName}
+                onChange={e => setNewName(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Escape') { setCreating(false); setNewName('') } }}
+                placeholder="filename (optional)"
+                style={{
+                  width: '100%', boxSizing: 'border-box',
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid rgba(236,72,153,0.3)',
+                  borderRadius: '6px', padding: '5px 8px',
+                  fontSize: '12px', color: 'white',
+                  fontFamily: 'monospace', outline: 'none',
+                }}
+                onFocus={e => { e.currentTarget.style.borderColor = 'rgba(244,114,182,0.7)' }}
+                onBlur={e => { e.currentTarget.style.borderColor = 'rgba(236,72,153,0.3)' }}
+                autoComplete="off"
+                spellCheck={false}
+              />
+            </form>
+
+            {/* Language type buttons */}
+            <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)', fontFamily: 'monospace', marginBottom: '6px' }}>
+              Choose type:
+            </p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+              {FILE_TYPES.map(ft => (
+                <button
+                  key={ft.ext}
+                  onClick={() => handleTypeClick(ft.ext, ft.defaultName)}
+                  title={ft.label}
+                  style={{
+                    padding: '4px 10px',
+                    fontSize: '11px', fontWeight: 700,
+                    fontFamily: 'monospace',
+                    background: ft.bg,
+                    color: ft.color,
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    transition: 'opacity 0.15s, transform 0.15s',
+                    opacity: 0.9,
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'translateY(-1px)' }}
+                  onMouseLeave={e => { e.currentTarget.style.opacity = '0.9'; e.currentTarget.style.transform = 'translateY(0)' }}
+                >
+                  .{ft.ext}
+                </button>
+              ))}
+            </div>
+
+            {/* Cancel */}
+            <button
+              onClick={() => { setCreating(false); setNewName('') }}
+              style={{
+                marginTop: '8px', width: '100%',
+                background: 'transparent', border: 'none',
+                fontSize: '11px', color: 'rgba(255,255,255,0.25)',
+                cursor: 'pointer', fontFamily: 'monospace',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.5)' }}
+              onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.25)' }}
+            >
+              cancel
+            </button>
+          </div>
         )}
+
+        {loading && <p className="px-6 py-2 text-xs text-slate-500">Loading files…</p>}
 
         {expanded && !loading && (
           <ul>
@@ -151,30 +250,35 @@ export default function Sidebar({ files, activeFile, onSelectFile, loading, onCr
                 </li>
               )
             })}
-
-            {/* New file inline form */}
-            {creating && (
-              <li className="px-6 py-1">
-                <form onSubmit={handleNewFileSubmit}>
-                  <input
-                    ref={inputRef}
-                    value={newName}
-                    onChange={e => setNewName(e.target.value)}
-                    onBlur={() => { if (!newName.trim()) { setCreating(false); setNewName('') } }}
-                    onKeyDown={e => { if (e.key === 'Escape') { setCreating(false); setNewName('') } }}
-                    placeholder="filename.py"
-                    className="w-full bg-slate-800 border border-pink-400/30 rounded px-2 py-1 text-xs text-white outline-none focus:border-pink-400/60 font-mono"
-                    autoComplete="off"
-                    spellCheck={false}
-                  />
-                </form>
-              </li>
-            )}
           </ul>
+        )}
+
+        {/* Restore defaults button — shown when no files */}
+        {!loading && files.length === 0 && onRestoreDefaults && (
+          <div style={{ padding: '12px 12px 0' }}>
+            <button
+              onClick={onRestoreDefaults}
+              style={{
+                width: '100%', padding: '8px 12px',
+                fontSize: '11px', fontFamily: 'monospace',
+                fontWeight: 600,
+                background: 'rgba(236,72,153,0.15)',
+                border: '1.5px solid rgba(244,114,182,0.4)',
+                borderRadius: '8px',
+                color: '#f9a8d4',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(236,72,153,0.3)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(236,72,153,0.15)' }}
+            >
+              ↺ Restore default files
+            </button>
+          </div>
         )}
       </div>
 
-      {/* Bottom user info */}
+      {/* Bottom */}
       <div className="px-4 py-2 border-t border-slate-700 text-slate-500 text-xs">
         iTEC 2026 Hackathon
       </div>
