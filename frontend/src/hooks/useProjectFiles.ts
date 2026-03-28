@@ -187,6 +187,42 @@ export function useProjectFiles(externalProjectId?: string): UseProjectFilesRetu
     return () => { cancelled = true }
   }, [externalProjectId])
 
+  // ── Realtime subscription: auto-sync files list without page reload ──────────
+  useEffect(() => {
+    if (!projectId) return
+    const channel = supabase
+      .channel(`files-list-${projectId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'files', filter: `project_id=eq.${projectId}` },
+        (payload) => {
+          const f = payload.new as { id: string; name: string; language: string }
+          setFiles(prev => {
+            if (prev.some(x => x.id === f.id)) return prev
+            return [...prev, { id: f.id, name: f.name, language: f.language }]
+          })
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'files', filter: `project_id=eq.${projectId}` },
+        (payload) => {
+          const deleted = payload.old as { id: string }
+          setFiles(prev => prev.filter(f => f.id !== deleted.id))
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'files', filter: `project_id=eq.${projectId}` },
+        (payload) => {
+          const f = payload.new as { id: string; name: string; language: string }
+          setFiles(prev => prev.map(x => x.id === f.id ? { ...x, name: f.name, language: f.language } : x))
+        }
+      )
+      .subscribe()
+    return () => { void supabase.removeChannel(channel) }
+  }, [projectId])
+
   const addFile = useCallback(async (name: string, language: string) => {
     const pid = projectIdRef.current
     if (!pid) return
