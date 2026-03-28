@@ -115,30 +115,36 @@ export default function Sidebar({ files, activeFile, onSelectFile, loading, onCr
         <div className="px-4 py-3">
           <span style={{ fontSize: '16px', fontWeight: 800 }} className="text-white tracking-widest uppercase">iTECify</span>
         </div>
-        <button
-          onClick={() => navigate('/')}
-          style={{
-            width: 'calc(100% - 16px)',
-            margin: '6px 8px 8px',
-            padding: '7px 12px',
-            fontSize: '11px',
-            fontWeight: 600,
-            fontFamily: 'monospace',
-            letterSpacing: '0.04em',
-            background: 'rgba(236,72,153,0.1)',
-            border: '1.5px solid rgba(244,114,182,0.35)',
-            borderRadius: '8px',
-            color: 'rgba(249,168,212,0.75)',
-            cursor: 'pointer',
-            transition: 'all 0.2s',
-            textAlign: 'left' as const,
-            display: 'block',
-          }}
-          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(236,72,153,0.22)'; e.currentTarget.style.color = '#f9a8d4'; e.currentTarget.style.borderColor = 'rgba(244,114,182,0.6)' }}
-          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(236,72,153,0.1)'; e.currentTarget.style.color = 'rgba(249,168,212,0.75)'; e.currentTarget.style.borderColor = 'rgba(244,114,182,0.35)' }}
-        >
-          ← Home
-        </button>
+        <div style={{ display: 'flex', gap: '6px', margin: '6px 8px 8px' }}>
+          <button
+            onClick={() => navigate('/dashboard')}
+            style={{
+              flex: 1, padding: '7px 8px', fontSize: '11px', fontWeight: 600,
+              fontFamily: 'monospace', letterSpacing: '0.04em',
+              background: 'rgba(139,92,246,0.1)', border: '1.5px solid rgba(139,92,246,0.35)',
+              borderRadius: '8px', color: 'rgba(196,181,253,0.75)', cursor: 'pointer',
+              transition: 'all 0.2s', textAlign: 'left' as const,
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(139,92,246,0.22)'; e.currentTarget.style.color = '#c4b5fd'; e.currentTarget.style.borderColor = 'rgba(139,92,246,0.6)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(139,92,246,0.1)'; e.currentTarget.style.color = 'rgba(196,181,253,0.75)'; e.currentTarget.style.borderColor = 'rgba(139,92,246,0.35)' }}
+          >
+            ← Dashboard
+          </button>
+          <button
+            onClick={() => navigate('/')}
+            style={{
+              flex: 1, padding: '7px 8px', fontSize: '11px', fontWeight: 600,
+              fontFamily: 'monospace', letterSpacing: '0.04em',
+              background: 'rgba(236,72,153,0.1)', border: '1.5px solid rgba(244,114,182,0.35)',
+              borderRadius: '8px', color: 'rgba(249,168,212,0.75)', cursor: 'pointer',
+              transition: 'all 0.2s', textAlign: 'left' as const,
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(236,72,153,0.22)'; e.currentTarget.style.color = '#f9a8d4'; e.currentTarget.style.borderColor = 'rgba(244,114,182,0.6)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(236,72,153,0.1)'; e.currentTarget.style.color = 'rgba(249,168,212,0.75)'; e.currentTarget.style.borderColor = 'rgba(244,114,182,0.35)' }}
+          >
+            ← Home
+          </button>
+        </div>
       </div>
 
       {/* Explorer */}

@@ -51,9 +51,13 @@ export default function DashboardPage() {
       console.error('[DashboardPage] create project error:', error)
       alert(`Eroare la creare proiect: ${error.message}`)
     } else if (data) {
+      await supabase
+        .from('project_members')
+        .insert({ project_id: data.id, user_id: user.id, role: 'owner' })
       setProjects(prev => [data, ...prev])
       setNewName('')
       setShowForm(false)
+      navigate('/editor', { state: { projectId: data.id } })
     }
     setCreating(false)
   }
