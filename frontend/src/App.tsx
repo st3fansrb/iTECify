@@ -10,6 +10,7 @@ import KonamiExplosion from './components/KonamiExplosion'
 import { useKonamiCode } from './hooks/useKonamiCode'
 import { useAuth } from './hooks/useAuth'
 import { useProjectFiles } from './hooks/useProjectFiles'
+import supabase from './lib/supabase'
 import { getUserProjects } from './lib/sessionApi'
 import { useProjectMembers } from './hooks/useProjectMembers'
 import { useRealtimeEditor, type ConnectedUser } from './hooks/useRealtimeEditor'
@@ -223,6 +224,13 @@ function EditorPage({ externalProjectId, onProjectName }: { externalProjectId?: 
     setOpenFileIds(prev => prev.includes(idOrName) ? prev : [...prev, idOrName])
   }
 
+  const handleDeleteFile = async (fileId: string) => {
+    const { error } = await supabase.from('files').delete().eq('id', fileId)
+    if (error) { console.error('[handleDeleteFile]', error); return }
+    setOpenFileIds(prev => prev.filter(id => id !== fileId))
+    setActiveFileId(prev => prev === fileId ? '' : prev)
+  }
+
   // Restore personal code for the newly selected file
   useEffect(() => {
     if (!activeFileId) return
@@ -381,6 +389,7 @@ function EditorPage({ externalProjectId, onProjectName }: { externalProjectId?: 
           onSelectFile={handleSelectFile}
           loading={filesLoading}
           onCreateFile={addFile}
+          onDeleteFile={handleDeleteFile}
           onRestoreDefaults={restoreDefaults}
           members={members}
           onlineUserIds={connectedUsers.map(u => u.userId)}
