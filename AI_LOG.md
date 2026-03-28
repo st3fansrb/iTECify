@@ -27,6 +27,17 @@
 * [x] Fix — zIndex layering: navbar 99999, marquee 1, dropdownuri 999999
 * [x] UI — Editor tab bar: buton ← Home (transparent, border roz subtil, useNavigate la /)
 * [x] UI — Sidebar: titlu iTECify 16px/800, buton ← Home sub titlu (font monospace 11px, roz subtil, hover #f9a8d4, useNavigate la /)
+* [x] UI — AIBlock: buton gradient roz/mov 48px + glow, animație pulse când e închis, panel glassmorphism 320×420px blur(20px), border-radius 16px
+* [x] UI — AIBlock: butonul flotant înlocuit cu <TriqBot /> (bottom: 80px), X mic în header panel (14×14px, font 10px, padding 2px, top-right absolut)
+* [x] UI — AIBlock: TriqBot repositionat la bottom: 200px, right: 24px (deasupra terminalului)
+* [x] UI — AIBlock: TriqBot poziționat fix la position:fixed, right:32px, top:50vh, transform:translateY(-50%) — centrat vertical pe ecran, drag eliminat complet
+* [x] UI — LoginPage: header card centrat (display:flex, flexDirection:column, alignItems:center, textAlign:center)
+* [x] Debug — console.log adăugat: remoteCursors în CodeEditor.tsx + presence state în useRealtimeEditor.ts + init/subscribe/track în useRealtimeEditor.ts (pentru verificare funcționare Presence)
+* [x] Feature 2 — Cursoare live în editor:
+  - useRealtimeEditor: cursor schimbat din `number | null` → `{ lineNumber, column } | null`; updateCursor actualizat; remoteCursors expus în return
+  - CodeEditor: editorRef + monacoRef stocate la onMount; useEffect pe remoteCursors+activeFileId → deltaDecorations (line highlight + caret CSS) + ContentWidgets (label deasupra cursorului); cleanup la unmount
+  - App.tsx: remoteCursors și activeFileId pasate din RealtimeEditor → CodeEditor
+  - Build OK (tsc -b + vite): 0 erori
 
 ## ❌ Erori Întâlnite și Încercări Eșuate
 *(Când primești o eroare, documentează abordarea greșită aici pentru a nu o repeta)*

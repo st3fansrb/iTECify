@@ -129,6 +129,7 @@ function EditorPage() {
   const { personalOutputs, addPersonalEntry, clearPersonalOutputs } = usePersonalTerminal()
   const members = useProjectMembers(projectId)
 
+
   const [activeFileId, setActiveFileId] = useState<string>('')
   const [connectedUsers, setConnectedUsers] = useState<ConnectedUser[]>([])
   const [output, setOutput] = useState('')
@@ -468,8 +469,8 @@ function EditorPage() {
             editorMode === 'shared' ? (
               <RealtimeEditor
                 key={activeFileId}
-                fileId={activeFileId}
                 projectId={projectId || undefined}
+                fileId={activeFileId}
                 language={activeFile.language}
                 onCodeChange={handleCodeChange}
                 onUsersChange={setConnectedUsers}
