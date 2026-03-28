@@ -8,17 +8,22 @@ import LoginPage from './pages/LoginPage'
 import SecretPage from './pages/SecretPage'
 import KonamiExplosion from './components/KonamiExplosion'
 import { useKonamiCode } from './hooks/useKonamiCode'
+import { useAuth } from './hooks/useAuth'
+import { useProjectFiles } from './hooks/useProjectFiles'
+import { useRealtimeEditor } from './hooks/useRealtimeEditor'
+import ConnectedUsers from './components/ConnectedUsers'
+import AIBlock from './components/AIBlock'
+import DashboardPage from './pages/DashboardPage'
 
-const INITIAL_FILES = [
-  { name: 'main.py', language: 'python' },
-  { name: 'index.js', language: 'javascript' },
-  { name: 'main.rs', language: 'rust' },
-]
-
-const INITIAL_CODE: Record<string, string> = {
-  'main.py': '# Python\nprint("Hello from iTECify!")\n',
-  'index.js': '// JavaScript\nconsole.log("Hello from iTECify!");\n',
-  'main.rs': '// Rust\nfn main() {\n    println!("Hello from iTECify!");\n}\n',
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth()
+  if (loading) return (
+    <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0f0c29', color: 'rgba(249,168,212,0.7)', fontFamily: 'monospace', fontSize: '14px' }}>
+      Authenticating...
+    </div>
+  )
+  if (!user) return <Navigate to="/login" replace />
+  return <>{children}</>
 }
 
 const BG_STYLE: React.CSSProperties = {
@@ -48,41 +53,88 @@ const ORBS = (
   </>
 )
 
+interface ConnectedUser { user_id: string; cursor_line: number | null }
+
+// ── Inner component that holds realtime state for the active file ──────────────
+function RealtimeEditor({
+  fileId, language, onCodeChange, onUsersChange,
+}: { fileId: string; language: string; onCodeChange: (code: string) => void; onUsersChange: (users: ConnectedUser[]) => void }) {
+  const { code, updateCode, updateCursor, loading, isSaving, connectedUsers } = useRealtimeEditor({
+    fileId,
+    initialContent: '',
+  })
+
+  // Propagate connected users up to EditorPage
+  useEffect(() => { onUsersChange(connectedUsers) }, [connectedUsers, onUsersChange])
+
+  const handleChange = (val: string) => {
+    updateCode(val)
+    onCodeChange(val)
+  }
+
+  if (loading) return (
+    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(249,168,212,0.5)', fontFamily: 'monospace', fontSize: '13px' }}>
+      Loading file…
+    </div>
+  )
+
+  return (
+    <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+      {isSaving && (
+        <div style={{ position: 'absolute', top: 8, right: 12, zIndex: 20, fontSize: '10px', color: 'rgba(249,168,212,0.5)', fontFamily: 'monospace', pointerEvents: 'none' }}>
+          saving…
+        </div>
+      )}
+      <CodeEditor
+        language={language}
+        value={code}
+        onChange={handleChange}
+        connectedUsers={connectedUsers}
+        onCursorChange={updateCursor}
+      />
+    </div>
+  )
+}
+
 function EditorPage() {
-  const [activeFile, setActiveFile] = useState('main.py')
-  const [codes, setCodes] = useState(INITIAL_CODE)
+  const { files, loading: filesLoading, addFile } = useProjectFiles()
+  const [activeFileId, setActiveFileId] = useState<string>('')
+  const [connectedUsers, setConnectedUsers] = useState<ConnectedUser[]>([])
   const [output, setOutput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [toast, setToast] = useState(false)
   const toastShownRef = useRef(false)
+  const lastCodeRef = useRef('')
+  const { user } = useAuth()
 
+  // Set first file as active once loaded
   useEffect(() => {
+    if (files.length > 0 && !activeFileId) {
+      setActiveFileId(files[0].id)
+    }
+  }, [files, activeFileId])
+
+  const activeFile = files.find(f => f.id === activeFileId)
+
+  const handleCodeChange = (code: string) => {
+    lastCodeRef.current = code
     if (toastShownRef.current) return
-    const found = Object.values(codes).some(c => c.includes('itecify'))
-    if (found) {
+    if (code.toLowerCase().includes('itecify')) {
       toastShownRef.current = true
       setToast(true)
       setTimeout(() => setToast(false), 4000)
     }
-  }, [codes])
-
-  const activeLanguage = INITIAL_FILES.find(f => f.name === activeFile)?.language ?? 'plaintext'
-
-  const handleCodeChange = (value: string) => {
-    setCodes((prev) => ({ ...prev, [activeFile]: value }))
   }
 
   const handleRun = async () => {
+    if (!activeFile) return
     setIsLoading(true)
     setOutput('Running...')
     try {
       const res = await fetch('http://localhost:3001/api/execute', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-
-        },
-        body: JSON.stringify({ language: activeLanguage, code: codes[activeFile] }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ language: activeFile.language, code: lastCodeRef.current }),
       })
       const data = await res.json()
       if (data.error) {
@@ -107,10 +159,11 @@ function EditorPage() {
         backdropFilter: 'blur(24px)',
         borderRight: '1px solid rgba(236,72,153,0.2)',
       }}>
-        <Sidebar files={INITIAL_FILES} activeFile={activeFile} onSelectFile={setActiveFile} />
+        <Sidebar files={files} activeFile={activeFileId} onSelectFile={setActiveFileId} loading={filesLoading} onCreateFile={addFile} />
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', position: 'relative', zIndex: 1 }}>
+        {/* Tab bar */}
         <div style={{
           display: 'flex', alignItems: 'center',
           background: 'rgba(0,0,0,0.25)',
@@ -118,22 +171,38 @@ function EditorPage() {
           borderBottom: '1px solid rgba(255,255,255,0.08)',
           padding: '0 8px',
         }}>
-          {INITIAL_FILES.map((file) => (
-            <button key={file.name} onClick={() => setActiveFile(file.name)} style={{
-              padding: '8px 16px', fontSize: '12px',
-              background: activeFile === file.name ? 'rgba(236,72,153,0.1)' : 'transparent',
-              color: activeFile === file.name ? '#f9a8d4' : 'rgba(255,255,255,0.35)',
-              border: 'none',
-              borderTop: activeFile === file.name ? '2px solid #f472b6' : '2px solid transparent',
-              cursor: 'pointer', transition: 'all 0.2s', fontFamily: 'monospace',
-            }}>
-              {file.name}
-            </button>
-          ))}
+          <div style={{ flex: 1, display: 'flex' }}>
+            {files.map((file) => (
+              <button key={file.id} onClick={() => setActiveFileId(file.id)} style={{
+                padding: '8px 16px', fontSize: '12px',
+                background: activeFileId === file.id ? 'rgba(236,72,153,0.1)' : 'transparent',
+                color: activeFileId === file.id ? '#f9a8d4' : 'rgba(255,255,255,0.35)',
+                border: 'none',
+                borderTop: activeFileId === file.id ? '2px solid #f472b6' : '2px solid transparent',
+                cursor: 'pointer', transition: 'all 0.2s', fontFamily: 'monospace',
+              }}>
+                {file.name}
+              </button>
+            ))}
+          </div>
+          <ConnectedUsers users={connectedUsers} currentUserId={user?.id} />
         </div>
 
-        <div style={{ flex: 1, overflow: 'hidden' }}>
-          <CodeEditor language={activeLanguage} value={codes[activeFile]} onChange={handleCodeChange} />
+        {/* Editor area — remount when file changes to reset realtime state */}
+        <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          {activeFileId && activeFile ? (
+            <RealtimeEditor
+              key={activeFileId}
+              fileId={activeFileId}
+              language={activeFile.language}
+              onCodeChange={handleCodeChange}
+              onUsersChange={setConnectedUsers}
+            />
+          ) : (
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.2)', fontFamily: 'monospace', fontSize: '13px' }}>
+              {filesLoading ? 'Loading project…' : 'No files found'}
+            </div>
+          )}
         </div>
 
         <div style={{
@@ -144,6 +213,8 @@ function EditorPage() {
           <TerminalOutput output={output} isLoading={isLoading} onRun={handleRun} onClear={() => setOutput('')} />
         </div>
       </div>
+
+      <AIBlock currentCode={lastCodeRef.current} language={activeFile?.language ?? 'plaintext'} />
 
       {toast && (
         <div style={{
@@ -182,7 +253,8 @@ export default function App() {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/editor" element={<EditorPage />} />
+        <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+        <Route path="/editor" element={<ProtectedRoute><EditorPage /></ProtectedRoute>} />
         <Route path="/secret" element={<SecretPage />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>

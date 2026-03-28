@@ -13,7 +13,7 @@
  *   → Toți userii autentificați ajung la același set de fileId-uri → colaborare live
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import supabase from '../lib/supabase'
 
 const DEMO_PROJECT_NAME = 'iTECify Demo'
@@ -34,12 +34,14 @@ export interface UseProjectFilesReturn {
   files: ProjectFile[]
   loading: boolean
   error: string | null
+  addFile: (name: string, language: string) => Promise<void>
 }
 
 export function useProjectFiles(): UseProjectFilesReturn {
   const [files, setFiles] = useState<ProjectFile[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const projectIdRef = useRef<string>('')
 
   useEffect(() => {
     let cancelled = false
@@ -60,6 +62,7 @@ export function useProjectFiles(): UseProjectFilesReturn {
 
         if (existing) {
           projectId = existing.id
+          projectIdRef.current = projectId
         } else {
           // ── 2. Creează proiectul (primul user care se loghează) ─────────────
           const { data: created, error: createErr } = await supabase
@@ -70,6 +73,7 @@ export function useProjectFiles(): UseProjectFilesReturn {
 
           if (createErr || !created) throw new Error(`Failed to create project: ${createErr?.message ?? ''}`)
           projectId = created.id
+          projectIdRef.current = projectId
         }
 
         // ── 3. Caută fișierele existente ──────────────────────────────────────
@@ -109,5 +113,18 @@ export function useProjectFiles(): UseProjectFilesReturn {
     return () => { cancelled = true }
   }, [])
 
-  return { files, loading, error }
+  const addFile = useCallback(async (name: string, language: string) => {
+    const pid = projectIdRef.current
+    if (!pid) return
+    const { data, error: insertErr } = await supabase
+      .from('files')
+      .insert({ name, language, content: '', project_id: pid })
+      .select('id, name, language')
+      .single()
+    if (!insertErr && data) {
+      setFiles(prev => [...prev, data])
+    }
+  }, [])
+
+  return { files, loading, error, addFile }
 }

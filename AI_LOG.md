@@ -5,6 +5,15 @@
 ## 🎯 Task-ul Curent (Ce încercăm să construim acum)
 * [x] Implementare strat Supabase: auth + DB sessions + realtime broadcast pentru sync cod Monaco
 * [x] Colaborare în timp real cu Yjs + Monaco Editor (multi-cursor sync)
+* [x] TASK 0.1 — Deleted supabaseClient.ts, fixed sessionApi.ts import
+* [x] TASK 0.2 — Deleted useRealtimeCode.ts (unused)
+* [x] TASK 1.1 — ProtectedRoute wrapping /editor and /dashboard
+* [x] TASK 1.2 — EditorPage uses useProjectFiles() (dynamic Supabase files)
+* [x] TASK 1.3 — useRealtimeEditor integrated; cursor broadcast via CodeEditor onCursorChange
+* [x] TASK 1.4 — ConnectedUsers.tsx: avatar dots with colors, hover tooltip, stacked display
+* [x] TASK 1.5.b — AIBlock.tsx: floating AI panel, chat UI, POST /api/ai
+* [x] TASK 2.1.b — DashboardPage.tsx: project grid, create new project form, sign out
+* [x] TASK 2.3 — Sidebar: inline new file form with "+" button, guesses language from extension
 
 ## ❌ Erori Întâlnite și Încercări Eșuate
 *(Când primești o eroare, documentează abordarea greșită aici pentru a nu o repeta)*
@@ -31,6 +40,13 @@
 * [x] **Plan B Execution Engine:** `POST /api/execute` funcțional via `child_process` (suportă JavaScript și Python). Fișiere: `src/services/executionService.js`, `src/index.js`, `backend/temp/`.
 * [x] **[2026-03-27] Membru 3:** Execuția codului prin `child_process` finalizată și verificată (Plan B).
 * [x] **[2026-03-27] Membru 3:** Upgrade la Docker real — `dockerode` instalat, `executionService.js` rescris. Containere izolate: fără rețea, 50MB RAM, read-only mount. Testat: Python OK, JavaScript OK, timeout (buclă infinită) OK.
+* [x] **[2026-03-28] Frontend — Marquee banner în HomePage (fix loop seamless):**
+  - Un singur `<span>` cu lista duplicată (×2 via `flatMap`), animat `translateX(0→-50%)` — când primul set ajunge la capăt, al doilea ia locul exact, fără salt sau spațiu gol.
+  - Limbi: Python, C, C++, TypeScript, JavaScript, React — separator `✦` roz, font monospace.
+* [x] **[2026-03-28] Frontend — Replace particles cu blob animat în HomePage:**
+  - Eliminat complet canvas-ul cu particule (`canvasRef`, `useEffect` particles, `<canvas>`).
+  - Adăugat `blob.png` ca fundal fix (`position:fixed`, centrat cu `translate(-50%,-50%)`), 600×600px, `opacity:0.4`, `zIndex:0`, `pointerEvents:none`.
+  - Animație `blob-float`: translateY -20px→+20px + rotate -5deg→+5deg, 6s ease-in-out infinite.
 * [x] **[2026-03-28] Frontend — Features section în HomePage:**
   - 3 carduri Linear.app style: `feature1.png`/`feature2.png`/`feature3.png`, label `FIG 0.X` top-left, fade gradient bottom, titlu + descriere jos.
   - Scroll animations via Intersection Observer API (fără librării externe): fade-in + slide-up (translateY 40px→0, opacity 0→1), delay 0/150/300ms per card.

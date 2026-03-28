@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 
 interface FileItem {
+  id?: string
   name: string
   language: string
 }
@@ -8,11 +9,46 @@ interface FileItem {
 interface SidebarProps {
   files: FileItem[]
   activeFile: string
-  onSelectFile: (name: string) => void
+  onSelectFile: (idOrName: string) => void
+  loading?: boolean
+  onCreateFile?: (name: string, language: string) => void
 }
 
-export default function Sidebar({ files, activeFile, onSelectFile }: SidebarProps) {
+const EXT_TO_LANG: Record<string, string> = {
+  py: 'python',
+  js: 'javascript',
+  ts: 'typescript',
+  tsx: 'typescript',
+  jsx: 'javascript',
+  rs: 'rust',
+  c: 'c',
+  cpp: 'cpp',
+  go: 'go',
+  md: 'markdown',
+  json: 'json',
+  css: 'css',
+  html: 'html',
+}
+
+function guessLanguage(filename: string): string {
+  const ext = filename.split('.').pop() ?? ''
+  return EXT_TO_LANG[ext.toLowerCase()] ?? 'plaintext'
+}
+
+export default function Sidebar({ files, activeFile, onSelectFile, loading, onCreateFile }: SidebarProps) {
   const [expanded, setExpanded] = useState(true)
+  const [creating, setCreating] = useState(false)
+  const [newName, setNewName] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const handleNewFileSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    const name = newName.trim()
+    if (!name) { setCreating(false); setNewName(''); return }
+    onCreateFile?.(name, guessLanguage(name))
+    setNewName('')
+    setCreating(false)
+  }
 
   return (
     <div className="w-64 bg-slate-900 border-r border-slate-700 flex flex-col h-full select-none">
@@ -23,29 +59,67 @@ export default function Sidebar({ files, activeFile, onSelectFile }: SidebarProp
 
       {/* Explorer */}
       <div className="flex-1 overflow-y-auto">
-        <button
-          className="w-full flex items-center gap-1 px-3 py-1.5 text-slate-400 text-xs uppercase tracking-widest hover:text-white"
-          onClick={() => setExpanded(!expanded)}
-        >
-          <span>{expanded ? '▾' : '▸'}</span> Explorer
-        </button>
+        {/* Section header with + button */}
+        <div className="flex items-center px-3 py-1.5">
+          <button
+            className="flex items-center gap-1 text-slate-400 text-xs uppercase tracking-widest hover:text-white flex-1"
+            onClick={() => setExpanded(!expanded)}
+          >
+            <span>{expanded ? '▾' : '▸'}</span> Explorer
+          </button>
+          {onCreateFile && (
+            <button
+              title="New file"
+              className="text-slate-500 hover:text-pink-300 text-base leading-none px-1 transition-colors"
+              onClick={() => { setCreating(true); setExpanded(true); setTimeout(() => inputRef.current?.focus(), 50) }}
+            >
+              +
+            </button>
+          )}
+        </div>
 
-        {expanded && (
+        {loading && (
+          <p className="px-6 py-2 text-xs text-slate-500">Loading files…</p>
+        )}
+
+        {expanded && !loading && (
           <ul>
-            {files.map((file) => (
-              <li
-                key={file.name}
-                onClick={() => onSelectFile(file.name)}
-                className={`flex items-center gap-2 px-6 py-1.5 text-sm cursor-pointer transition-colors ${
-                  activeFile === file.name
-                    ? 'bg-slate-700 text-white'
-                    : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                }`}
-              >
-                <span className="text-xs">📄</span>
-                {file.name}
+            {files.map((file) => {
+              const key = file.id ?? file.name
+              return (
+                <li
+                  key={key}
+                  onClick={() => onSelectFile(key)}
+                  className={`flex items-center gap-2 px-6 py-1.5 text-sm cursor-pointer transition-colors ${
+                    activeFile === key
+                      ? 'bg-slate-700 text-white'
+                      : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                  }`}
+                >
+                  <span className="text-xs">📄</span>
+                  {file.name}
+                </li>
+              )
+            })}
+
+            {/* New file inline form */}
+            {creating && (
+              <li className="px-6 py-1">
+                <form onSubmit={handleNewFileSubmit}>
+                  <input
+                    ref={inputRef}
+                    value={newName}
+                    onChange={e => setNewName(e.target.value)}
+                    onBlur={() => { if (!newName.trim()) { setCreating(false); setNewName('') } }}
+                    onKeyDown={e => { if (e.key === 'Escape') { setCreating(false); setNewName('') } }}
+                    placeholder="filename.py"
+                    className="w-full bg-slate-800 border border-pink-400/30 rounded px-2 py-1 text-xs text-white outline-none focus:border-pink-400/60 font-mono"
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
+                </form>
               </li>
-            ))}
+            )}
           </ul>
         )}
       </div>

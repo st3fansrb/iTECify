@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { useEffect, useRef, useState } from 'react'
+import blobSrc from '../assets/blob.png'
 import feature1 from '../assets/feature1.png'
 import feature2 from '../assets/feature2.png'
 import feature3 from '../assets/feature3.png'
@@ -27,7 +28,6 @@ const FEATURES = [
 
 export default function HomePage() {
   const navigate = useNavigate()
-  const canvasRef = useRef<HTMLCanvasElement>(null)
   const clickCountRef = useRef(0)
   const [hackerMode, setHackerMode] = useState(false)
   const cardsRef = useRef<(HTMLDivElement | null)[]>([null, null, null])
@@ -40,62 +40,6 @@ export default function HomePage() {
       setTimeout(() => setHackerMode(false), 10000)
     }
   }
-
-  // Particle canvas
-  useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-
-    canvas.width = window.innerWidth
-    canvas.height = window.innerHeight
-
-    const particles: { x: number; y: number; vx: number; vy: number; size: number; color: string; alpha: number }[] = []
-    const colors = ['#f9a8d4', '#d8b4fe', '#fde68a', '#fbcfe8', '#e9d5ff']
-
-    for (let i = 0; i < 80; i++) {
-      particles.push({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
-        vx: (Math.random() - 0.5) * 0.4,
-        vy: (Math.random() - 0.5) * 0.4,
-        size: Math.random() * 3 + 1,
-        color: colors[Math.floor(Math.random() * colors.length)],
-        alpha: Math.random() * 0.6 + 0.2,
-      })
-    }
-
-    let animId: number
-    function animate() {
-      if (!ctx || !canvas) return
-      ctx.clearRect(0, 0, canvas.width, canvas.height)
-      particles.forEach((p) => {
-        p.x += p.vx
-        p.y += p.vy
-        if (p.x < 0 || p.x > canvas.width) p.vx *= -1
-        if (p.y < 0 || p.y > canvas.height) p.vy *= -1
-        ctx.beginPath()
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2)
-        ctx.fillStyle = p.color
-        ctx.globalAlpha = p.alpha
-        ctx.fill()
-      })
-      ctx.globalAlpha = 1
-      animId = requestAnimationFrame(animate)
-    }
-    animate()
-
-    const handleResize = () => {
-      canvas.width = window.innerWidth
-      canvas.height = window.innerHeight
-    }
-    window.addEventListener('resize', handleResize)
-    return () => {
-      cancelAnimationFrame(animId)
-      window.removeEventListener('resize', handleResize)
-    }
-  }, [])
 
   // Intersection Observer for scroll animations
   useEffect(() => {
@@ -150,8 +94,21 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* Fixed canvas background */}
-      <canvas ref={canvasRef} style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none' }} />
+      {/* Blob background */}
+      <img
+        src={blobSrc}
+        alt=""
+        style={{
+          position: 'absolute',
+          top: 0, left: 0,
+          width: '100vw', height: '100vh',
+          objectFit: 'cover',
+          opacity: 0.35,
+          zIndex: 0,
+          pointerEvents: 'none',
+          animation: 'blob-float 6s ease-in-out infinite',
+        }}
+      />
 
       {/* ── Hero section ─────────────────────────────────────────────────────── */}
       <div style={{ position: 'relative', zIndex: 1, height: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -198,33 +155,49 @@ export default function HomePage() {
           </div>
         </nav>
 
+        {/* Marquee banner */}
+        {(() => {
+          const LANGS = ['Python', 'C', 'C++', 'TypeScript', 'JavaScript', 'React']
+          const allItems = [...LANGS, ...LANGS]
+          return (
+            <div style={{
+              borderTop: '1px solid rgba(255,255,255,0.06)',
+              borderBottom: '1px solid rgba(255,255,255,0.06)',
+              background: 'rgba(0,0,0,0.2)',
+              backdropFilter: 'blur(8px)',
+              overflow: 'hidden',
+              width: '100%',
+              padding: '10px 0',
+              position: 'relative', zIndex: 10,
+            }}>
+              <div style={{
+                display: 'flex',
+                width: 'max-content',
+                animation: 'marquee 20s linear infinite',
+              }}>
+                {allItems.map((lang, i) => (
+                  <span key={i} style={{
+                    flexShrink: 0, whiteSpace: 'nowrap',
+                    fontFamily: 'monospace', fontSize: '12px',
+                    color: 'rgba(255,255,255,0.35)', letterSpacing: '0.08em',
+                    padding: '0 28px',
+                  }}>
+                    <span style={{ color: 'rgba(249,168,212,0.5)', marginRight: '28px' }}>✦</span>
+                    {lang}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )
+        })()}
+
         {/* Hero content */}
         <div style={{
           flex: 1, display: 'flex', flexDirection: 'column',
           alignItems: 'center', justifyContent: 'center',
           position: 'relative', zIndex: 10, textAlign: 'center',
-          padding: '0 24px',
+          padding: '120px 24px 0',
         }}>
-          <div style={{ marginBottom: '32px', position: 'relative' }}>
-            <div style={{
-              position: 'absolute', inset: '-20px',
-              background: 'radial-gradient(circle, rgba(249,168,212,0.2) 0%, transparent 70%)',
-              borderRadius: '50%',
-            }} />
-            <img
-              src="/src/assets/logo.png"
-              alt="iTECify"
-              onClick={handleLogoClick}
-              style={{
-                width: '120px', height: '120px',
-                filter: 'invert(1) sepia(1) saturate(2) hue-rotate(280deg) brightness(1.2)',
-                position: 'relative',
-                animation: 'float 4s ease-in-out infinite',
-                cursor: 'pointer',
-              }}
-            />
-          </div>
-
           <h1 style={{
             fontSize: '64px', fontWeight: 800, marginBottom: '16px',
             background: 'linear-gradient(135deg, #ffffff 0%, #f9a8d4 50%, #d8b4fe 100%)',
@@ -235,11 +208,11 @@ export default function HomePage() {
           </h1>
 
           <p style={{
-            fontSize: '18px', color: 'rgba(255,255,255,0.5)',
-            maxWidth: '480px', lineHeight: 1.6, marginBottom: '40px',
+            fontSize: '24px', color: 'white', fontWeight: 500,
+            maxWidth: '480px', lineHeight: 1.5, marginBottom: '40px',
+            letterSpacing: '0.01em',
           }}>
-            O platformă de <span style={{ color: '#f9a8d4' }}>code-collaboration</span> și{' '}
-            <span style={{ color: '#d8b4fe' }}>sandboxing</span> — scrie, rulează și colaborează în timp real.
+            Your code. Your team. One place.
           </p>
 
           <button
@@ -387,6 +360,14 @@ export default function HomePage() {
         @keyframes hacker-pulse {
           0%, 100% { opacity: 1; }
           50% { opacity: 0.5; }
+        }
+        @keyframes marquee {
+          0%   { transform: translateX(0%);   }
+          100% { transform: translateX(-50%); }
+        }
+        @keyframes blob-float {
+          0%, 100% { transform: translateY(-20px) rotate(-5deg); }
+          50%       { transform: translateY(20px)  rotate(5deg);  }
         }
       `}</style>
     </div>

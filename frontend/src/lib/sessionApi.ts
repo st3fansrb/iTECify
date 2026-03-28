@@ -1,7 +1,7 @@
 // CRUD helpers for the `sessions` table.
 // Used exclusively by hooks — components must NOT import supabase directly.
 
-import { supabase } from './supabaseClient'
+import supabase from './supabase'
 import type { Session, Language } from './database.types'
 
 /** Create a new session. `created_by` is injected by Supabase RLS (auth.uid()). */
