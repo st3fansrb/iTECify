@@ -188,6 +188,7 @@ export default function CodeEditor({
           autoIndent: 'keep',
           fontFamily: 'JetBrains Mono, Fira Code, monospace',
           padding: { top: 16 },
+          stickyScroll: { enabled: false },
           readOnly,
         }}
       />
