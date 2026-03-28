@@ -74,7 +74,7 @@ export default function AIBlock({ currentCode, language, terminalHeight = 192, t
         style={{
           position: 'fixed',
           right: '24px',
-          bottom: `${(terminalCollapsed ? 36 : terminalHeight) + 6}px`,
+          bottom: `${(terminalCollapsed ? 36 : terminalHeight) + 6 + 36}px`,
           zIndex: 200,
         }}
       >

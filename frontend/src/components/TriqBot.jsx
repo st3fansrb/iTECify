@@ -111,8 +111,8 @@ export default function TriqBot() {
           <div className="triq-btn" onClick={() => setOpen((o) => !o)}>
             <svg
               className={`triq-svg${open ? " open" : ""}`}
-              width={open ? 195 : 150}
-              height={open ? 280 : 215}
+              width={open ? 110 : 80}
+              height={open ? 158 : 115}
               viewBox="0 0 180 255"
               xmlns="http://www.w3.org/2000/svg"
             >
