@@ -1,4 +1,5 @@
 import { useState, useRef, CSSProperties } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import type { ProjectMember } from '../hooks/useProjectMembers'
 
@@ -573,8 +574,8 @@ const handleFileContextMenu = (file: FileItem, e: React.MouseEvent) => {
         iTEC 2026 Hackathon
       </div>
 
-      {/* Right-click context menu — backdrop + popup */}
-      {contextMenu && (
+      {/* Right-click context menu — rendered in a portal to escape stacking context */}
+      {contextMenu && createPortal(
         <>
           {/* Full-screen backdrop */}
           <div
@@ -639,7 +640,8 @@ const handleFileContextMenu = (file: FileItem, e: React.MouseEvent) => {
               Delete permanently
             </button>
           </div>
-        </>
+        </>,
+        document.body
       )}
 
       <style>{`
