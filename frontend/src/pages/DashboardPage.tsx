@@ -54,6 +54,14 @@ export default function DashboardPage() {
       await supabase
         .from('project_members')
         .insert({ project_id: data.id, user_id: user.id, role: 'owner' })
+      await supabase
+        .from('files')
+        .insert({
+          project_id: data.id,
+          name: 'README.md',
+          language: 'markdown',
+          content: `# ${name}\n\nBun venit în proiectul tău iTECify!\n\n## Cum începi\n\n- Adaugă fișiere noi cu butonul **+** din sidebar\n- Rulează codul cu butonul **Run**\n- Invită colegi din meniul de utilizator (avatar sus-dreapta)\n`,
+        })
       setProjects(prev => [data, ...prev])
       setNewName('')
       setShowForm(false)
