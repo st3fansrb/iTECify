@@ -589,9 +589,7 @@ function EditorPage({ externalProjectId, onProjectName }: { externalProjectId?: 
             <div style={{ marginLeft: 'auto', display: 'flex', gap: '6px' }}>
             <button
               onClick={() => {
-                // Accept — keep code, clear decorations
-                monacoEditorRef.current?.deltaDecorations(aiDecorationIdsRef.current, [])
-                aiDecorationIdsRef.current = []
+                // Accept — keep code and highlight, just close banner
                 setAiPendingInsert(null)
               }}
               style={{
