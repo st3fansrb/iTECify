@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, CSSProperties } from 'react'
+import { useState, useRef, CSSProperties } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { ProjectMember } from '../hooks/useProjectMembers'
 
@@ -164,16 +164,7 @@ export default function Sidebar({ files, activeFile, onSelectFile, loading, onCr
   const [contextMenu, setContextMenu] = useState<{ file: FileItem; x: number; y: number } | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Close context menu on outside click
-  useEffect(() => {
-    if (!contextMenu) return
-    const close = () => setContextMenu(null)
-    window.addEventListener('click', close)
-    window.addEventListener('contextmenu', close)
-    return () => { window.removeEventListener('click', close); window.removeEventListener('contextmenu', close) }
-  }, [contextMenu])
-
-  const handleFileContextMenu = (file: FileItem, e: React.MouseEvent) => {
+const handleFileContextMenu = (file: FileItem, e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
     setContextMenu({ file, x: e.clientX, y: e.clientY })
@@ -264,33 +255,11 @@ export default function Sidebar({ files, activeFile, onSelectFile, loading, onCr
           >
             <span>{expanded ? '▾' : '▸'}</span> Explorer
           </button>
-          {onCreateFile && (
-            <button
-              title="New file"
-              onClick={openCreate}
-              style={{
-                padding: '3px 10px',
-                fontSize: '16px',
-                fontWeight: 700,
-                background: 'rgba(236,72,153,0.2)',
-                border: '1.5px solid rgba(244,114,182,0.5)',
-                borderRadius: '7px',
-                color: '#f9a8d4',
-                cursor: 'pointer',
-                lineHeight: 1,
-                transition: 'all 0.2s',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(236,72,153,0.4)' }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(236,72,153,0.2)' }}
-            >
-              +
-            </button>
-          )}
         </div>
 
-        {onNewProject && (
+        {onCreateFile && (
           <button
-            onClick={onNewProject}
+            onClick={openCreate}
             style={{
               width: 'calc(100% - 16px)',
               margin: '4px 8px',
@@ -299,18 +268,18 @@ export default function Sidebar({ files, activeFile, onSelectFile, loading, onCr
               fontWeight: 600,
               fontFamily: 'monospace',
               letterSpacing: '0.04em',
-              background: 'rgba(139,92,246,0.15)',
-              border: '1.5px solid rgba(139,92,246,0.4)',
+              background: 'rgba(236,72,153,0.15)',
+              border: '1.5px solid rgba(244,114,182,0.4)',
               borderRadius: '8px',
-              color: 'rgba(167,139,250,0.9)',
+              color: 'rgba(249,168,212,0.9)',
               cursor: 'pointer',
               transition: 'all 0.2s',
               textAlign: 'left' as const,
             }}
-            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(139,92,246,0.3)' }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(139,92,246,0.15)' }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(236,72,153,0.3)'; e.currentTarget.style.borderColor = 'rgba(244,114,182,0.7)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(236,72,153,0.15)'; e.currentTarget.style.borderColor = 'rgba(244,114,182,0.4)' }}
           >
-            + New Project
+            + New File
           </button>
         )}
 
@@ -604,56 +573,73 @@ export default function Sidebar({ files, activeFile, onSelectFile, loading, onCr
         iTEC 2026 Hackathon
       </div>
 
-      {/* Right-click context menu */}
+      {/* Right-click context menu — backdrop + popup */}
       {contextMenu && (
-        <div
-          onClick={e => e.stopPropagation()}
-          style={{
-            position: 'fixed',
-            top: contextMenu.y,
-            left: contextMenu.x,
-            zIndex: 9999,
-            background: 'rgba(10,5,28,0.97)',
-            border: '1px solid rgba(239,68,68,0.25)',
-            borderRadius: '10px',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.7), 0 0 16px rgba(239,68,68,0.08)',
-            backdropFilter: 'blur(20px)',
-            minWidth: '178px',
-            overflow: 'hidden',
-            animation: 'ctx-in 0.12s cubic-bezier(0.34,1.4,0.64,1) both',
-          }}
-        >
-          {/* File name label */}
-          <div style={{
-            padding: '7px 14px 5px',
-            fontSize: '10px', fontWeight: 700, letterSpacing: '0.08em',
-            color: 'rgba(255,255,255,0.25)', fontFamily: 'monospace',
-            textTransform: 'uppercase',
-            borderBottom: '1px solid rgba(255,255,255,0.06)',
-          }}>
-            {contextMenu.file.name}
-          </div>
-
-          {/* Delete option */}
-          <button
-            onClick={handleDeleteFile}
+        <>
+          {/* Full-screen backdrop */}
+          <div
+            onClick={() => setContextMenu(null)}
+            onContextMenu={e => { e.preventDefault(); setContextMenu(null) }}
             style={{
-              width: '100%', textAlign: 'left',
-              padding: '10px 14px',
-              display: 'flex', alignItems: 'center', gap: '9px',
-              background: 'transparent', border: 'none',
-              color: 'rgba(252,165,165,0.85)',
-              fontSize: '13px', fontFamily: 'monospace',
-              cursor: 'pointer',
-              transition: 'background 0.12s, color 0.12s',
+              position: 'fixed', inset: 0,
+              zIndex: 9998,
+              background: 'rgba(0,0,0,0.55)',
+              backdropFilter: 'blur(3px)',
             }}
-            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.15)'; e.currentTarget.style.color = '#fca5a5' }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(252,165,165,0.85)' }}
+          />
+
+          {/* Menu popup */}
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              position: 'fixed',
+              top: contextMenu.y,
+              left: contextMenu.x,
+              zIndex: 9999,
+              background: 'rgba(8,4,22,0.98)',
+              border: '1px solid rgba(239,68,68,0.4)',
+              borderRadius: '12px',
+              boxShadow: '0 12px 48px rgba(0,0,0,0.85), 0 0 0 1px rgba(239,68,68,0.12), 0 0 28px rgba(239,68,68,0.15)',
+              backdropFilter: 'blur(24px)',
+              minWidth: '200px',
+              overflow: 'hidden',
+              animation: 'ctx-in 0.15s cubic-bezier(0.34,1.4,0.64,1) both',
+            }}
           >
-            <span style={{ fontSize: '15px', lineHeight: 1 }}>🗑</span>
-            Delete permanently
-          </button>
-        </div>
+            {/* File name label */}
+            <div style={{
+              padding: '9px 16px 7px',
+              fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em',
+              color: 'rgba(255,255,255,0.4)', fontFamily: 'monospace',
+              textTransform: 'uppercase',
+              borderBottom: '1px solid rgba(255,255,255,0.08)',
+              background: 'rgba(255,255,255,0.03)',
+            }}>
+              {contextMenu.file.name}
+            </div>
+
+            {/* Delete option */}
+            <button
+              onClick={handleDeleteFile}
+              style={{
+                width: '100%', textAlign: 'left',
+                padding: '12px 16px',
+                display: 'flex', alignItems: 'center', gap: '10px',
+                background: 'transparent', border: 'none',
+                color: '#fca5a5',
+                fontSize: '13px', fontFamily: 'monospace', fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'background 0.12s, color 0.12s',
+                letterSpacing: '0.01em',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.2)'; e.currentTarget.style.color = '#fecaca' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#fca5a5' }}
+            >
+              <span style={{ fontSize: '15px', lineHeight: 1 }}>🗑</span>
+              Delete permanently
+            </button>
+          </div>
+        </>
       )}
 
       <style>{`
