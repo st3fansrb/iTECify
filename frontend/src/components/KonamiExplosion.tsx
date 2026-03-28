@@ -117,12 +117,18 @@ export default function KonamiExplosion({ onClose }: { onClose: () => void }) {
       {/* Particles canvas */}
       <canvas ref={canvasRef} style={{ position: 'absolute', inset: 0, zIndex: 2, pointerEvents: 'none' }} />
 
-      {/* Cat logo — centrat perfect, float + glow roz */}
-      <div style={{
-        position: 'absolute', top: '50%', left: '50%',
-        transform: 'translate(-50%, -50%)',
-        zIndex: 3, pointerEvents: 'none',
-      }}>
+      {/* Conținut principal — coloană centrată: imagine → text → buton */}
+      <div
+        style={{
+          position: 'relative', zIndex: 4,
+          display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center',
+          textAlign: 'center', pointerEvents: 'none',
+          gap: '0px',
+        }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Cat logo — sus, fade-in + float + glow pulsating + hover rotate */}
         <img
           src={catSrc}
           alt="access granted"
@@ -130,22 +136,16 @@ export default function KonamiExplosion({ onClose }: { onClose: () => void }) {
             width: '200px', height: '200px',
             objectFit: 'contain',
             borderRadius: '16px',
-            boxShadow: '0 0 40px rgba(244,114,182,0.8), 0 0 80px rgba(244,114,182,0.45), 0 0 130px rgba(167,139,250,0.3)',
-            animation: 'k-pop 0.6s cubic-bezier(0.34,1.56,0.64,1) both, cat-float 3s 0.6s ease-in-out infinite',
+            marginBottom: '24px',
+            pointerEvents: 'all',
+            cursor: 'default',
+            animation: 'cat-appear 0.6s ease-out both, cat-float 3s 0.6s ease-in-out infinite, cat-glow-pulse 2s 0.6s ease-in-out infinite',
+            transition: 'transform 0.3s ease',
           }}
+          onMouseEnter={e => { e.currentTarget.style.transform = 'rotate(5deg)' }}
+          onMouseLeave={e => { e.currentTarget.style.transform = 'rotate(0deg)' }}
         />
-      </div>
 
-      {/* Text + button — bottom center */}
-      <div
-        style={{
-          position: 'absolute', bottom: '8%', left: '50%',
-          transform: 'translateX(-50%)',
-          zIndex: 4, textAlign: 'center',
-          whiteSpace: 'nowrap', pointerEvents: 'none',
-        }}
-        onClick={e => e.stopPropagation()}
-      >
         {/* ACCESS GRANTED — gradient text roz/mov */}
         <div
           className="k-glitch"
@@ -160,6 +160,7 @@ export default function KonamiExplosion({ onClose }: { onClose: () => void }) {
             animation: 'k-fade-in 0.4s 0.5s both',
             position: 'relative',
             marginBottom: '10px',
+            whiteSpace: 'nowrap',
           }}
         >
           ACCESS GRANTED
@@ -171,6 +172,7 @@ export default function KonamiExplosion({ onClose }: { onClose: () => void }) {
           animation: 'k-fade-in 0.4s 0.8s both',
           fontFamily: 'monospace',
           textShadow: '0 0 12px rgba(249,168,212,0.4)',
+          whiteSpace: 'nowrap',
         }}>
           IDENTITY VERIFIED — CLEARANCE LEVEL: VOID
         </p>
@@ -220,14 +222,17 @@ export default function KonamiExplosion({ onClose }: { onClose: () => void }) {
           from { filter: hue-rotate(0deg); }
           to   { filter: hue-rotate(360deg); }
         }
-        @keyframes k-pop {
-          0%   { transform: scale(0) rotate(-180deg); opacity: 0; }
-          60%  { transform: scale(1.15) rotate(8deg);  opacity: 1; }
-          100% { transform: scale(1)   rotate(0deg);   opacity: 1; }
+        @keyframes cat-appear {
+          0%   { opacity: 0; transform: scale(0.5); }
+          100% { opacity: 1; transform: scale(1); }
         }
         @keyframes cat-float {
-          0%, 100% { transform: translateY(0px);   }
-          50%       { transform: translateY(-14px); }
+          0%, 100% { transform: translateY(0px);    }
+          50%       { transform: translateY(-10px);  }
+        }
+        @keyframes cat-glow-pulse {
+          0%, 100% { box-shadow: 0 0 30px rgba(249,168,212,0.4), 0 0 60px rgba(167,139,250,0.2); }
+          50%       { box-shadow: 0 0 50px rgba(249,168,212,0.8), 0 0 90px rgba(167,139,250,0.4); }
         }
         @keyframes k-fade-in {
           from { opacity: 0; transform: translateY(16px); }

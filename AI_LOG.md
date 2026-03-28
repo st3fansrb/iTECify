@@ -108,6 +108,11 @@
   - creat `hooks/usePersonalTerminal.ts` — state local pur, fără Supabase, expune personalOutputs/addPersonalEntry/clearPersonalOutputs
   - `TerminalOutput.tsx`: adăugat tabs Shared/My Terminal în header; personal tab afișează TerminalEntry[] cu culori per tip; Clear șterge tab-ul activ
   - `App.tsx`: integrat usePersonalTerminal, addPersonalEntry apelat la fiecare event SSE (command/stdout/stderr/error/exit), props noi pasate la TerminalOutput
+* [x] **[2026-03-28] UI — KonamiExplosion: layout vertical (imagine→text→buton) + animații cat:**
+  - Layout refăcut: coloană flexbox centrată `flexDirection:column alignItems:center` — imagine sus → ACCESS GRANTED → subtitle → buton
+  - Imagine `cat-access.png`: `marginBottom:24px`, animații combinate: `cat-appear 0.6s ease-out` (fade-in + scale 0.5→1), `cat-float 3s infinite` (translateY ±10px), `cat-glow-pulse 2s infinite` (box-shadow 0.4→0.8 opacity)
+  - Hover imagine: `rotate(5deg)` cu `transition:transform 0.3s ease` via onMouseEnter/Leave
+  - Înlocuit `k-pop` cu `cat-appear` (eliminat rotație la apariție, păstrat scale fade-in)
 * [x] **[2026-03-28] UI — KonamiExplosion: access-bg.png + hue-rotate + cat centrat + gradient text + buton mare:**
   - Fundal: `access-bg.png` `position:absolute inset:0 width:100% height:100% object-fit:cover opacity:0.6` + animație `k-hue-spin 10s linear infinite` (hue-rotate 0→360deg)
   - Overlay: `rgba(4,0,16,0.45)` + `backdropFilter:blur(4px)` — transparent, fără negru solid
