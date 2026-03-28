@@ -31,6 +31,9 @@ export default function HomePage() {
   const clickCountRef = useRef(0)
   const [hackerMode, setHackerMode] = useState(false)
   const cardsRef = useRef<(HTMLDivElement | null)[]>([null, null, null])
+  const [openDropdown, setOpenDropdown] = useState<'contact' | 'about' | null>(null)
+  const contactRef = useRef<HTMLDivElement>(null)
+  const aboutRef = useRef<HTMLDivElement>(null)
 
   const handleLogoClick = () => {
     clickCountRef.current += 1
@@ -137,7 +140,7 @@ export default function HomePage() {
 
         {/* Navbar */}
         <nav style={{
-          position: 'relative', zIndex: 10,
+          position: 'relative', zIndex: 99999,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: '20px 48px',
           borderBottom: '1px solid rgba(255,255,255,0.06)',
@@ -153,6 +156,137 @@ export default function HomePage() {
             />
             <span style={{ fontWeight: 700, fontSize: '18px', color: 'white', letterSpacing: '0.05em' }}>iTECify</span>
           </div>
+
+          {/* Right side nav items */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+
+            {/* Contact button + dropdown — closes on mouse leave */}
+            <div
+              ref={contactRef}
+              style={{ position: 'relative' }}
+              onMouseEnter={() => setOpenDropdown('contact')}
+              onMouseLeave={() => setOpenDropdown(null)}
+            >
+              <button
+                style={{
+                  padding: '7px 16px', fontSize: '13px', fontWeight: 500,
+                  background: openDropdown === 'contact' ? 'rgba(249,168,212,0.12)' : 'transparent',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  borderRadius: '8px', color: '#ffffff',
+                  cursor: 'pointer', transition: 'all 0.2s', letterSpacing: '0.02em',
+                }}
+              >
+                Contact
+              </button>
+              {openDropdown === 'contact' && (
+                <div style={{
+                  position: 'absolute', top: 'calc(100% + 4px)', right: 0,
+                  minWidth: '320px', zIndex: 999999,
+                  maxHeight: '350px', overflowY: 'auto',
+                  scrollbarWidth: 'thin', scrollbarColor: '#f472b6 transparent',
+                  background: 'rgba(8,4,25,0.98)',
+                  backdropFilter: 'blur(20px)',
+                  WebkitBackdropFilter: 'blur(20px)',
+                  border: '1px solid rgba(249,168,212,0.2)',
+                  borderRadius: '12px', padding: '16px',
+                  boxShadow: '0 8px 40px rgba(0,0,0,0.7), 0 0 30px rgba(249,168,212,0.06)',
+                  animation: 'dropdown-in 0.15s ease both',
+                  color: '#ffffff',
+                }}>
+                  <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.15em', color: 'rgba(249,168,212,0.7)', textTransform: 'uppercase', fontFamily: 'monospace', marginBottom: '8px' }}>Email</p>
+                  <a
+                    href="mailto:triquetra.itecify@gmail.com"
+                    style={{ fontSize: '13px', color: '#f9a8d4', textDecoration: 'none', fontFamily: 'monospace', display: 'block', marginBottom: '16px' }}
+                    onMouseEnter={e => { e.currentTarget.style.textDecoration = 'underline' }}
+                    onMouseLeave={e => { e.currentTarget.style.textDecoration = 'none' }}
+                  >
+                    triquetra.itecify@gmail.com
+                  </a>
+                  <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.15em', color: 'rgba(249,168,212,0.7)', textTransform: 'uppercase', fontFamily: 'monospace', marginBottom: '8px' }}>Team</p>
+                  {['Mateescu Vlad', 'Sirbu Stefan', 'Termure Madalina'].map(name => (
+                    <p key={name} style={{ fontSize: '13px', color: '#ffffff', marginBottom: '4px', paddingLeft: '2px' }}>
+                      {name}
+                    </p>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* About Us button + dropdown — closes on mouse leave */}
+            <div
+              ref={aboutRef}
+              style={{ position: 'relative' }}
+              onMouseEnter={() => setOpenDropdown('about')}
+              onMouseLeave={() => setOpenDropdown(null)}
+            >
+              <button
+                style={{
+                  padding: '7px 16px', fontSize: '13px', fontWeight: 500,
+                  background: openDropdown === 'about' ? 'rgba(249,168,212,0.12)' : 'transparent',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  borderRadius: '8px', color: '#ffffff',
+                  cursor: 'pointer', transition: 'all 0.2s', letterSpacing: '0.02em',
+                }}
+              >
+                About Us
+              </button>
+              {openDropdown === 'about' && (
+                <div style={{
+                  position: 'absolute', top: 'calc(100% + 4px)', right: 0,
+                  minWidth: '320px', zIndex: 999999,
+                  maxHeight: '350px', overflowY: 'auto',
+                  scrollbarWidth: 'thin', scrollbarColor: '#f472b6 transparent',
+                  background: 'rgba(8,4,25,0.98)',
+                  backdropFilter: 'blur(20px)',
+                  WebkitBackdropFilter: 'blur(20px)',
+                  border: '1px solid rgba(249,168,212,0.2)',
+                  borderRadius: '12px', padding: '16px',
+                  boxShadow: '0 8px 40px rgba(0,0,0,0.7), 0 0 30px rgba(249,168,212,0.06)',
+                  animation: 'dropdown-in 0.15s ease both',
+                  color: '#ffffff',
+                }}>
+                  <p style={{ fontSize: '13px', color: '#ffffff', lineHeight: 1.6, marginBottom: '16px' }}>
+                    iTECify is a real-time collaborative IDE — write, run, and share code with your team instantly.
+                  </p>
+                  <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.15em', color: 'rgba(249,168,212,0.7)', textTransform: 'uppercase', fontFamily: 'monospace', marginBottom: '8px' }}>How to use</p>
+                  {['1. Create an account', '2. Open or create a project', '3. Invite your team and code together'].map(step => (
+                    <p key={step} style={{ fontSize: '13px', color: '#ffffff', marginBottom: '4px', paddingLeft: '2px', fontFamily: 'monospace' }}>
+                      {step}
+                    </p>
+                  ))}
+                  <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.15em', color: 'rgba(249,168,212,0.7)', textTransform: 'uppercase', fontFamily: 'monospace', margin: '14px 0 8px' }}>Built with</p>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    {['React', 'TypeScript', 'Monaco Editor', 'Supabase', 'Docker'].map(tech => (
+                      <span key={tech} style={{
+                        padding: '3px 10px', fontSize: '11px', fontFamily: 'monospace',
+                        background: 'rgba(249,168,212,0.15)', border: '1px solid rgba(249,168,212,0.3)',
+                        borderRadius: '20px', color: '#ffffff',
+                      }}>
+                        {tech}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Get Started button */}
+            <button
+              onClick={() => navigate('/login')}
+              style={{
+                padding: '7px 18px', fontSize: '13px', fontWeight: 600,
+                background: 'linear-gradient(135deg, rgba(249,168,212,0.2), rgba(216,180,254,0.2))',
+                border: '1px solid rgba(249,168,212,0.4)',
+                borderRadius: '8px', color: 'white',
+                cursor: 'pointer', transition: 'all 0.2s',
+                backdropFilter: 'blur(10px)', letterSpacing: '0.02em',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(249,168,212,0.2)' }}
+              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none' }}
+            >
+              Sign In
+            </button>
+          </div>
         </nav>
 
         {/* Marquee banner */}
@@ -161,14 +295,14 @@ export default function HomePage() {
           const allItems = [...LANGS, ...LANGS]
           return (
             <div style={{
-              borderTop: '1px solid rgba(255,255,255,0.06)',
-              borderBottom: '1px solid rgba(255,255,255,0.06)',
-              background: 'rgba(0,0,0,0.2)',
-              backdropFilter: 'blur(8px)',
+              borderTop: '1px solid rgba(255,255,255,0.05)',
+              borderBottom: '1px solid rgba(255,255,255,0.05)',
+              background: 'rgba(0,0,0,0.4)',
+              backdropFilter: 'blur(5px)',
               overflow: 'hidden',
               width: '100%',
               padding: '10px 0',
-              position: 'relative', zIndex: 10,
+              position: 'relative', zIndex: 1,
             }}>
               <div style={{
                 display: 'flex',
@@ -178,11 +312,11 @@ export default function HomePage() {
                 {allItems.map((lang, i) => (
                   <span key={i} style={{
                     flexShrink: 0, whiteSpace: 'nowrap',
-                    fontFamily: 'monospace', fontSize: '12px',
-                    color: 'rgba(255,255,255,0.35)', letterSpacing: '0.08em',
+                    fontFamily: 'monospace', fontSize: '11px',
+                    color: 'rgba(255,255,255,0.25)', letterSpacing: '0.08em',
                     padding: '0 28px',
                   }}>
-                    <span style={{ color: 'rgba(249,168,212,0.5)', marginRight: '28px' }}>✦</span>
+                    <span style={{ color: 'rgba(255,255,255,0.15)', marginRight: '28px' }}>·</span>
                     {lang}
                   </span>
                 ))}
@@ -368,6 +502,10 @@ export default function HomePage() {
         @keyframes blob-float {
           0%, 100% { transform: translateY(-20px) rotate(-5deg); }
           50%       { transform: translateY(20px)  rotate(5deg);  }
+        }
+        @keyframes dropdown-in {
+          from { opacity: 0; transform: translateY(-6px); }
+          to   { opacity: 1; transform: translateY(0); }
         }
       `}</style>
     </div>
