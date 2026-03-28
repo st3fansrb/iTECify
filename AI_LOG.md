@@ -21,6 +21,7 @@
 * [x] Layout — Toggle Terminal: buton ⌄/⌃ în header terminal, collapse la 36px (doar header)
 * [x] UI — Sidebar: badge-uri colorate per extensie (JS galben, PY albastru, RS roșu etc.), 18×16px, border-radius 3px
 * [x] Fix — HomePage: import blob revenит la blob.png (un coleg îl schimbase în hero.png, cauzând dispariția animației de fundal)
+* [x] UI — HomePage navbar: butoane Contact + About Us cu dropdownuri glassmorphism (close on outside click, animatie dropdown-in)
 
 ## ❌ Erori Întâlnite și Încercări Eșuate
 *(Când primești o eroare, documentează abordarea greșită aici pentru a nu o repeta)*

@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import blobSrc from '../assets/blob.png'
 import feature1 from '../assets/feature1.png'
 import feature2 from '../assets/feature2.png'
@@ -31,6 +31,24 @@ export default function HomePage() {
   const clickCountRef = useRef(0)
   const [hackerMode, setHackerMode] = useState(false)
   const cardsRef = useRef<(HTMLDivElement | null)[]>([null, null, null])
+  const [openDropdown, setOpenDropdown] = useState<'contact' | 'about' | null>(null)
+  const contactRef = useRef<HTMLDivElement>(null)
+  const aboutRef = useRef<HTMLDivElement>(null)
+
+  const closeDropdowns = useCallback(() => setOpenDropdown(null), [])
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (
+        contactRef.current && !contactRef.current.contains(e.target as Node) &&
+        aboutRef.current && !aboutRef.current.contains(e.target as Node)
+      ) {
+        setOpenDropdown(null)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
 
   const handleLogoClick = () => {
     clickCountRef.current += 1
@@ -152,6 +170,127 @@ export default function HomePage() {
               style={{ width: '32px', height: '32px', filter: 'invert(1) sepia(1) saturate(2) hue-rotate(280deg)', cursor: 'pointer' }}
             />
             <span style={{ fontWeight: 700, fontSize: '18px', color: 'white', letterSpacing: '0.05em' }}>iTECify</span>
+          </div>
+
+          {/* Right side nav items */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+
+            {/* Contact button + dropdown */}
+            <div ref={contactRef} style={{ position: 'relative' }}>
+              <button
+                onClick={() => setOpenDropdown(o => o === 'contact' ? null : 'contact')}
+                style={{
+                  padding: '7px 16px', fontSize: '13px', fontWeight: 500,
+                  background: openDropdown === 'contact' ? 'rgba(249,168,212,0.12)' : 'transparent',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  borderRadius: '8px', color: 'rgba(255,255,255,0.75)',
+                  cursor: 'pointer', transition: 'all 0.2s', letterSpacing: '0.02em',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(249,168,212,0.1)'; e.currentTarget.style.color = 'white' }}
+                onMouseLeave={e => { e.currentTarget.style.background = openDropdown === 'contact' ? 'rgba(249,168,212,0.12)' : 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.75)' }}
+              >
+                Contact
+              </button>
+              {openDropdown === 'contact' && (
+                <div style={{
+                  position: 'absolute', top: 'calc(100% + 8px)', right: 0,
+                  minWidth: '280px', zIndex: 100,
+                  background: 'rgba(8,4,18,0.92)',
+                  backdropFilter: 'blur(20px)',
+                  WebkitBackdropFilter: 'blur(20px)',
+                  border: '1px solid rgba(249,168,212,0.2)',
+                  borderRadius: '12px', padding: '16px',
+                  boxShadow: '0 8px 40px rgba(0,0,0,0.5), 0 0 30px rgba(249,168,212,0.05)',
+                  animation: 'dropdown-in 0.15s ease both',
+                }}>
+                  <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.15em', color: 'rgba(249,168,212,0.5)', textTransform: 'uppercase', fontFamily: 'monospace', marginBottom: '8px' }}>Email</p>
+                  <a
+                    href="mailto:triquetra.itecify@gmail.com"
+                    style={{ fontSize: '13px', color: '#f9a8d4', textDecoration: 'none', fontFamily: 'monospace', display: 'block', marginBottom: '16px' }}
+                    onMouseEnter={e => { e.currentTarget.style.textDecoration = 'underline' }}
+                    onMouseLeave={e => { e.currentTarget.style.textDecoration = 'none' }}
+                  >
+                    triquetra.itecify@gmail.com
+                  </a>
+                  <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.15em', color: 'rgba(249,168,212,0.5)', textTransform: 'uppercase', fontFamily: 'monospace', marginBottom: '8px' }}>Team</p>
+                  {['Mateescu Vlad', 'Sirbu Stefan', 'Termure Madalina'].map(name => (
+                    <p key={name} style={{ fontSize: '13px', color: 'rgba(255,255,255,0.7)', marginBottom: '4px', paddingLeft: '2px' }}>
+                      {name}
+                    </p>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* About Us button + dropdown */}
+            <div ref={aboutRef} style={{ position: 'relative' }}>
+              <button
+                onClick={() => setOpenDropdown(o => o === 'about' ? null : 'about')}
+                style={{
+                  padding: '7px 16px', fontSize: '13px', fontWeight: 500,
+                  background: openDropdown === 'about' ? 'rgba(249,168,212,0.12)' : 'transparent',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  borderRadius: '8px', color: 'rgba(255,255,255,0.75)',
+                  cursor: 'pointer', transition: 'all 0.2s', letterSpacing: '0.02em',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(249,168,212,0.1)'; e.currentTarget.style.color = 'white' }}
+                onMouseLeave={e => { e.currentTarget.style.background = openDropdown === 'about' ? 'rgba(249,168,212,0.12)' : 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.75)' }}
+              >
+                About Us
+              </button>
+              {openDropdown === 'about' && (
+                <div style={{
+                  position: 'absolute', top: 'calc(100% + 8px)', right: 0,
+                  minWidth: '300px', zIndex: 100,
+                  background: 'rgba(8,4,18,0.92)',
+                  backdropFilter: 'blur(20px)',
+                  WebkitBackdropFilter: 'blur(20px)',
+                  border: '1px solid rgba(249,168,212,0.2)',
+                  borderRadius: '12px', padding: '16px',
+                  boxShadow: '0 8px 40px rgba(0,0,0,0.5), 0 0 30px rgba(249,168,212,0.05)',
+                  animation: 'dropdown-in 0.15s ease both',
+                }}>
+                  <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.65)', lineHeight: 1.6, marginBottom: '16px' }}>
+                    iTECify is a real-time collaborative IDE — write, run, and share code with your team instantly.
+                  </p>
+                  <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.15em', color: 'rgba(249,168,212,0.5)', textTransform: 'uppercase', fontFamily: 'monospace', marginBottom: '8px' }}>How to use</p>
+                  {['1. Create an account', '2. Open or create a project', '3. Invite your team and code together'].map(step => (
+                    <p key={step} style={{ fontSize: '13px', color: 'rgba(255,255,255,0.7)', marginBottom: '4px', paddingLeft: '2px', fontFamily: 'monospace' }}>
+                      {step}
+                    </p>
+                  ))}
+                  <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.15em', color: 'rgba(249,168,212,0.5)', textTransform: 'uppercase', fontFamily: 'monospace', margin: '14px 0 8px' }}>Built with</p>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    {['React', 'TypeScript', 'Monaco Editor', 'Supabase', 'Docker'].map(tech => (
+                      <span key={tech} style={{
+                        padding: '3px 10px', fontSize: '11px', fontFamily: 'monospace',
+                        background: 'rgba(249,168,212,0.1)', border: '1px solid rgba(249,168,212,0.2)',
+                        borderRadius: '20px', color: '#f9a8d4',
+                      }}>
+                        {tech}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Get Started button */}
+            <button
+              onClick={() => navigate('/login')}
+              style={{
+                padding: '7px 18px', fontSize: '13px', fontWeight: 600,
+                background: 'linear-gradient(135deg, rgba(249,168,212,0.2), rgba(216,180,254,0.2))',
+                border: '1px solid rgba(249,168,212,0.4)',
+                borderRadius: '8px', color: 'white',
+                cursor: 'pointer', transition: 'all 0.2s',
+                backdropFilter: 'blur(10px)', letterSpacing: '0.02em',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(249,168,212,0.2)' }}
+              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none' }}
+            >
+              Sign In
+            </button>
           </div>
         </nav>
 
@@ -368,6 +507,10 @@ export default function HomePage() {
         @keyframes blob-float {
           0%, 100% { transform: translateY(-20px) rotate(-5deg); }
           50%       { transform: translateY(20px)  rotate(5deg);  }
+        }
+        @keyframes dropdown-in {
+          from { opacity: 0; transform: translateY(-6px); }
+          to   { opacity: 1; transform: translateY(0); }
         }
       `}</style>
     </div>
