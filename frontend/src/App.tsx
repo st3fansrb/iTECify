@@ -180,6 +180,7 @@ function EditorPage({ externalProjectId, onProjectName }: { externalProjectId?: 
   const lastCodeRef = useRef('')
   const monacoEditorRef = useRef<import('monaco-editor').editor.IStandaloneCodeEditor | null>(null)
   const saveSnapshotNowRef = useRef<(() => Promise<void>) | null>(null)
+  const preTimeTravelCodeRef = useRef('')
   const { user, session, signOut } = useAuth()
   const [timeTravelContent, setTimeTravelContent] = useState<string | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(true)
@@ -620,15 +621,21 @@ function EditorPage({ externalProjectId, onProjectName }: { externalProjectId?: 
             fileId={activeFileId}
             onPreview={async (content) => {
               if (content !== null && timeTravelContent === null) {
-                // Entering Time Travel — save current code as snapshot first
+                // Entering Time Travel — save current code as snapshot + remember exact state
+                preTimeTravelCodeRef.current = lastCodeRef.current
                 await saveSnapshotNowRef.current?.()
               }
-              setTimeTravelContent(content)
+              if (content === null) {
+                // Exiting without restore — bring back exactly what was there before
+                setTimeTravelContent(null)
+                setTimeout(() => { monacoEditorRef.current?.setValue(preTimeTravelCodeRef.current) }, 0)
+              } else {
+                setTimeTravelContent(content)
+              }
             }}
             onRestore={(content) => {
               lastCodeRef.current = content
               setTimeTravelContent(null)
-              // Apply restore directly in Monaco editor
               setTimeout(() => { monacoEditorRef.current?.setValue(content) }, 0)
             }}
           />
