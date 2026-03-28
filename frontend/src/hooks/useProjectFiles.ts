@@ -55,30 +55,39 @@ export function useProjectFiles(): UseProjectFilesReturn {
 
         let projectId: string
 
-        // ── 1. Caută proiectul prin project_members (funcționează și după invite accept) ──
-        const { data: membership } = await supabase
-          .from('project_members')
-          .select('project_id')
-          .eq('user_id', user.id)
-          .limit(1)
+        // ── 1. Caută proiectul owned de user ─────────────────────────────────
+        const { data: ownedProject } = await supabase
+          .from('projects')
+          .select('id')
+          .eq('owner_id', user.id)
+          .eq('name', DEMO_PROJECT_NAME)
           .maybeSingle()
 
-        if (membership) {
-          projectId = membership.project_id
+        if (ownedProject) {
+          projectId = ownedProject.id
           projectIdRef.current = projectId
           setProjectId(projectId)
+
+          // Asigură membership ca owner
+          await supabase
+            .from('project_members')
+            .upsert({ project_id: projectId, user_id: user.id, role: 'owner' }, { onConflict: 'project_id,user_id' })
+            .then(() => {}).catch(() => {})
         } else {
-          // ── 2. Caută proiectul partajat după nume ─────────────────────────
-          const { data: existing } = await supabase
-            .from('projects')
-            .select('id')
-            .eq('name', DEMO_PROJECT_NAME)
+          // ── 2. Caută membership ca member (după invite accept) ───────────────
+          const { data: membership } = await supabase
+            .from('project_members')
+            .select('project_id')
+            .eq('user_id', user.id)
+            .limit(1)
             .maybeSingle()
 
-          if (existing) {
-            projectId = existing.id
+          if (membership) {
+            projectId = membership.project_id
+            projectIdRef.current = projectId
+            setProjectId(projectId)
           } else {
-            // ── 3. Creează proiectul (primul user care se loghează) ───────────
+            // ── 3. Creează proiectul nou ────────────────────────────────────
             const { data: created, error: createErr } = await supabase
               .from('projects')
               .insert({ name: DEMO_PROJECT_NAME, owner_id: user.id })
@@ -87,17 +96,14 @@ export function useProjectFiles(): UseProjectFilesReturn {
 
             if (createErr || !created) throw new Error(`Failed to create project: ${createErr?.message ?? ''}`)
             projectId = created.id
+            projectIdRef.current = projectId
+            setProjectId(projectId)
+
+            await supabase
+              .from('project_members')
+              .insert({ project_id: projectId, user_id: user.id, role: 'owner' })
+              .then(() => {}).catch(() => {})
           }
-
-          projectIdRef.current = projectId
-          setProjectId(projectId)
-
-          // Adaugă userul ca membru dacă nu e deja
-          await supabase
-            .from('project_members')
-            .insert({ project_id: projectId, user_id: user.id, role: 'owner' })
-            .then(() => {})
-            .catch(() => {})
         }
 
         // ── 3. Caută fișierele existente ──────────────────────────────────────
