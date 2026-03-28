@@ -23,7 +23,7 @@ function renderMessage(content) {
   });
 }
 
-export default function TriqBot() {
+export default function TriqBot({ onClick }) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([
     { role: "assistant", content: "Sunt Triq. Cum te pot ajuta?" },
@@ -79,8 +79,8 @@ export default function TriqBot() {
     <div className="triq-wrap">
       <div className="triq-row">
 
-        {/* ── CHAT — stânga ── */}
-        {open && (
+        {/* ── CHAT — stânga (only shown when no external onClick handler) ── */}
+        {open && !onClick && (
           <div className="triq-chat-col">
             <div className="triq-chat">
               <div className="triq-chat-header">
@@ -123,7 +123,7 @@ export default function TriqBot() {
 
         {/* ── AVATAR — dreapta ── */}
         <div className="triq-avatar-col">
-          <div className="triq-btn" onClick={() => setOpen((o) => !o)}>
+          <div className="triq-btn" onClick={() => { if (onClick) onClick(); else setOpen((o) => !o); }}>
             <svg
               className={`triq-svg${open ? " open" : ""}`}
               width={open ? 110 : 80}
