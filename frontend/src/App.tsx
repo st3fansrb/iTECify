@@ -10,6 +10,7 @@ import KonamiExplosion from './components/KonamiExplosion'
 import { useKonamiCode } from './hooks/useKonamiCode'
 import { useAuth } from './hooks/useAuth'
 import { useProjectFiles } from './hooks/useProjectFiles'
+import { getUserProjects } from './lib/sessionApi'
 import { useProjectMembers } from './hooks/useProjectMembers'
 import { useRealtimeEditor, type ConnectedUser } from './hooks/useRealtimeEditor'
 import { useSharedTerminal } from './hooks/useSharedTerminal'
@@ -146,6 +147,14 @@ function EditorPage({ externalProjectId, onProjectName }: { externalProjectId?: 
   const lastCodeRef = useRef('')
   const { user, session, signOut } = useAuth()
   const [timeTravelContent, setTimeTravelContent] = useState<string | null>(null)
+  const [userProjects, setUserProjects] = useState<Array<{ id: string; name: string }>>([])
+
+  useEffect(() => {
+    if (!user?.id) return
+    getUserProjects(user.id).then(list => {
+      setUserProjects(list.map(p => ({ id: p.projects.id, name: p.projects.name })))
+    }).catch(() => {})
+  }, [user?.id])
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [terminalHeight, setTerminalHeight] = useState(192)
   const [terminalCollapsed, setTerminalCollapsed] = useState(false)
@@ -377,6 +386,9 @@ function EditorPage({ externalProjectId, onProjectName }: { externalProjectId?: 
           onlineUserIds={connectedUsers.map(u => u.userId)}
           projectName={projectName}
           onNewProject={() => navigate('/dashboard')}
+          userProjects={userProjects}
+          currentProjectId={projectId ?? undefined}
+          onSwitchProject={(pid) => navigate('/editor', { state: { projectId: pid } })}
         />
       </div>
 
