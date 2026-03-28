@@ -33,8 +33,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 const BG_STYLE: React.CSSProperties = {
   display: 'flex',
-  height: '100vh',
-  width: '100vw',
+  flex: 1,
   overflow: 'hidden',
   color: 'white',
   position: 'relative',
@@ -123,10 +122,8 @@ function RealtimeEditor({
   )
 }
 
-function EditorPage() {
-  const location = useLocation()
+function EditorPage({ externalProjectId, onProjectName }: { externalProjectId?: string; onProjectName?: (name: string) => void }) {
   const navigate = useNavigate()
-  const externalProjectId = (location.state as { projectId?: string } | null)?.projectId
   const { files, loading: filesLoading, addFile, restoreDefaults, projectId, projectName } = useProjectFiles(externalProjectId)
   const { outputs, broadcast, clearOutputs } = useSharedTerminal(projectId)
   const { personalOutputs, addPersonalEntry, clearPersonalOutputs } = usePersonalTerminal()
@@ -134,6 +131,8 @@ function EditorPage() {
 
 
   const [activeFileId, setActiveFileId] = useState<string>('')
+  const [openFileIds, setOpenFileIds] = useState<string[]>([])
+  const initializedRef = useRef(false)
   const [connectedUsers, setConnectedUsers] = useState<ConnectedUser[]>([])
   const [output, setOutput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -170,14 +169,50 @@ function EditorPage() {
     }
   }, [])
 
-  // Set first file as active once loaded
+  // Report project name to parent (for project tabs)
   useEffect(() => {
-    if (files.length > 0 && !activeFileId) {
-      setActiveFileId(files[0].id)
+    if (projectName) onProjectName?.(projectName)
+  }, [projectName])
+
+  // Manage open file tabs
+  useEffect(() => {
+    if (files.length === 0) return
+    if (!initializedRef.current) {
+      // First load — open all files
+      initializedRef.current = true
+      const ids = files.map(f => f.id).filter(Boolean)
+      setOpenFileIds(ids)
+      setActiveFileId(ids[0] ?? '')
+    } else {
+      // Subsequent updates — auto-open newly added files
+      setOpenFileIds(prev => {
+        const prevSet = new Set(prev)
+        const newIds = files.map(f => f.id).filter(id => id && !prevSet.has(id))
+        if (newIds.length === 0) return prev
+        setActiveFileId(newIds[newIds.length - 1])
+        return [...prev, ...newIds]
+      })
     }
-  }, [files, activeFileId])
+  }, [files])
 
   const activeFile = files.find(f => f.id === activeFileId)
+  const openFiles = files.filter(f => openFileIds.includes(f.id))
+
+  const closeFileTab = (fileId: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setOpenFileIds(prev => {
+      const next = prev.filter(id => id !== fileId)
+      if (activeFileId === fileId) {
+        setActiveFileId(next[next.length - 1] ?? '')
+      }
+      return next
+    })
+  }
+
+  const handleSelectFile = (idOrName: string) => {
+    setActiveFileId(idOrName)
+    setOpenFileIds(prev => prev.includes(idOrName) ? prev : [...prev, idOrName])
+  }
 
   // Restore personal code for the newly selected file
   useEffect(() => {
@@ -334,7 +369,7 @@ function EditorPage() {
         <Sidebar
           files={files}
           activeFile={activeFileId}
-          onSelectFile={setActiveFileId}
+          onSelectFile={handleSelectFile}
           loading={filesLoading}
           onCreateFile={addFile}
           onRestoreDefaults={restoreDefaults}
@@ -378,42 +413,73 @@ function EditorPage() {
           padding: '4px 8px',
           gap: '4px',
         }}>
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '4px' }}>
-            {files.map((file) => (
-              <button
-                key={file.id}
-                onClick={() => setActiveFileId(file.id)}
-                style={{
-                  padding: '5px 14px',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  fontFamily: 'monospace',
-                  letterSpacing: '0.03em',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                  background: activeFileId === file.id ? 'rgba(236,72,153,0.25)' : 'rgba(255,255,255,0.05)',
-                  border: activeFileId === file.id ? '1.5px solid #f472b6' : '1.5px solid rgba(255,255,255,0.15)',
-                  color: activeFileId === file.id ? '#f9a8d4' : 'rgba(255,255,255,0.4)',
-                }}
-                onMouseEnter={e => {
-                  if (activeFileId !== file.id) {
-                    e.currentTarget.style.background = 'rgba(236,72,153,0.1)'
-                    e.currentTarget.style.borderColor = 'rgba(244,114,182,0.4)'
-                    e.currentTarget.style.color = 'rgba(249,168,212,0.7)'
-                  }
-                }}
-                onMouseLeave={e => {
-                  if (activeFileId !== file.id) {
-                    e.currentTarget.style.background = 'rgba(255,255,255,0.05)'
-                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'
-                    e.currentTarget.style.color = 'rgba(255,255,255,0.4)'
-                  }
-                }}
-              >
-                {file.name}
-              </button>
-            ))}
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '4px', overflowX: 'auto', flexWrap: 'nowrap' }}>
+            {openFiles.map((file) => {
+              const isActive = activeFileId === file.id
+              return (
+                <div key={file.id} style={{ position: 'relative', flexShrink: 0, display: 'flex', alignItems: 'center' }}>
+                  <button
+                    onClick={() => setActiveFileId(file.id)}
+                    style={{
+                      padding: '5px 28px 5px 14px',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      fontFamily: 'monospace',
+                      letterSpacing: '0.03em',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      background: isActive ? 'rgba(236,72,153,0.25)' : 'rgba(255,255,255,0.05)',
+                      border: isActive ? '1.5px solid #f472b6' : '1.5px solid rgba(255,255,255,0.15)',
+                      color: isActive ? '#f9a8d4' : 'rgba(255,255,255,0.4)',
+                      whiteSpace: 'nowrap',
+                    }}
+                    onMouseEnter={e => {
+                      if (!isActive) {
+                        e.currentTarget.style.background = 'rgba(236,72,153,0.1)'
+                        e.currentTarget.style.borderColor = 'rgba(244,114,182,0.4)'
+                        e.currentTarget.style.color = 'rgba(249,168,212,0.7)'
+                      }
+                    }}
+                    onMouseLeave={e => {
+                      if (!isActive) {
+                        e.currentTarget.style.background = 'rgba(255,255,255,0.05)'
+                        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'
+                        e.currentTarget.style.color = 'rgba(255,255,255,0.4)'
+                      }
+                    }}
+                  >
+                    {file.name}
+                  </button>
+                  {/* Close tab button */}
+                  <button
+                    onClick={e => closeFileTab(file.id, e)}
+                    title="Close tab"
+                    style={{
+                      position: 'absolute',
+                      right: '7px',
+                      width: '14px',
+                      height: '14px',
+                      background: 'transparent',
+                      border: 'none',
+                      color: 'rgba(255,255,255,0.3)',
+                      cursor: 'pointer',
+                      fontSize: '11px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderRadius: '3px',
+                      padding: 0,
+                      lineHeight: 1,
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.color = '#f9a8d4'; e.currentTarget.style.background = 'rgba(236,72,153,0.25)' }}
+                    onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.3)'; e.currentTarget.style.background = 'transparent' }}
+                  >
+                    ×
+                  </button>
+                </div>
+              )
+            })}
           </div>
           {/* Editor mode toggle */}
           <div style={{ display: 'flex', gap: '5px', marginLeft: '8px', marginRight: '4px' }}>
@@ -597,6 +663,151 @@ function EditorPage() {
 }
 
 
+// ── Multi-project tab wrapper ────────────────────────────────────────────────
+interface OpenProject {
+  id?: string
+  name: string
+}
+
+function MultiProjectEditorWrapper() {
+  const location = useLocation()
+  const navigate = useNavigate()
+  const incomingId = (location.state as { projectId?: string } | null)?.projectId
+
+  const [openProjects, setOpenProjects] = useState<OpenProject[]>([
+    { id: incomingId, name: incomingId ? '…' : 'Demo' },
+  ])
+  const [activeIdx, setActiveIdx] = useState(0)
+  const prevIdRef = useRef(incomingId)
+
+  // Detect navigation to a new project
+  useEffect(() => {
+    const pid = (location.state as { projectId?: string } | null)?.projectId
+    if (pid === prevIdRef.current) return
+    prevIdRef.current = pid
+    if (!pid) return
+
+    setOpenProjects(prev => {
+      const idx = prev.findIndex(p => p.id === pid)
+      if (idx >= 0) {
+        setActiveIdx(idx)
+        return prev
+      }
+      const next = [...prev, { id: pid, name: '…' }]
+      setActiveIdx(next.length - 1)
+      return next
+    })
+  }, [location.state])
+
+  const updateName = (idx: number, name: string) => {
+    setOpenProjects(prev => prev.map((p, i) => i === idx ? { ...p, name } : p))
+  }
+
+  const closeProject = (idx: number, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (openProjects.length === 1) {
+      navigate('/dashboard')
+      return
+    }
+    setOpenProjects(prev => {
+      const next = prev.filter((_, i) => i !== idx)
+      setActiveIdx(a => Math.min(a > idx ? a - 1 : a, next.length - 1))
+      return next
+    })
+  }
+
+  const active = openProjects[activeIdx]
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+      {/* Project tabs */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        background: 'rgba(5,2,20,0.7)',
+        backdropFilter: 'blur(10px)',
+        borderBottom: '1px solid rgba(139,92,246,0.2)',
+        padding: '4px 8px',
+        gap: '4px',
+        flexShrink: 0,
+        overflowX: 'auto',
+      }}>
+        {openProjects.map((p, i) => {
+          const isActive = activeIdx === i
+          return (
+            <div key={`${p.id ?? 'demo'}-${i}`} style={{ position: 'relative', flexShrink: 0, display: 'flex', alignItems: 'center' }}>
+              <button
+                onClick={() => setActiveIdx(i)}
+                style={{
+                  padding: '4px 26px 4px 10px',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  fontFamily: 'monospace',
+                  letterSpacing: '0.03em',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  background: isActive ? 'rgba(139,92,246,0.25)' : 'rgba(255,255,255,0.04)',
+                  border: isActive ? '1.5px solid #a78bfa' : '1.5px solid rgba(255,255,255,0.12)',
+                  color: isActive ? '#c4b5fd' : 'rgba(255,255,255,0.4)',
+                  whiteSpace: 'nowrap',
+                }}
+                onMouseEnter={e => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = 'rgba(139,92,246,0.12)'
+                    e.currentTarget.style.borderColor = 'rgba(167,139,250,0.4)'
+                    e.currentTarget.style.color = 'rgba(196,181,253,0.8)'
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = 'rgba(255,255,255,0.04)'
+                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)'
+                    e.currentTarget.style.color = 'rgba(255,255,255,0.4)'
+                  }
+                }}
+              >
+                📁 {p.name}
+              </button>
+              <button
+                onClick={e => closeProject(i, e)}
+                title="Close project"
+                style={{
+                  position: 'absolute',
+                  right: '7px',
+                  width: '14px',
+                  height: '14px',
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'rgba(255,255,255,0.3)',
+                  cursor: 'pointer',
+                  fontSize: '11px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: '3px',
+                  padding: 0,
+                  lineHeight: 1,
+                }}
+                onMouseEnter={e => { e.currentTarget.style.color = '#c4b5fd'; e.currentTarget.style.background = 'rgba(139,92,246,0.25)' }}
+                onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.3)'; e.currentTarget.style.background = 'transparent' }}
+              >
+                ×
+              </button>
+            </div>
+          )
+        })}
+      </div>
+
+      <EditorPage
+        key={active?.id ?? 'demo'}
+        externalProjectId={active?.id}
+        onProjectName={name => updateName(activeIdx, name)}
+      />
+    </div>
+  )
+}
+
 export default function App() {
   const { activated, reset } = useKonamiCode()
 
@@ -607,7 +818,7 @@ export default function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
-        <Route path="/editor" element={<ProtectedRoute><EditorPage /></ProtectedRoute>} />
+        <Route path="/editor" element={<ProtectedRoute><MultiProjectEditorWrapper /></ProtectedRoute>} />
         <Route path="/secret" element={<SecretPage />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
