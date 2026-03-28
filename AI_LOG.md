@@ -19,6 +19,7 @@
 * [x] Layout — Resize divider: drag 6px între editor și terminal (mousedown/mousemove/mouseup, min 80px, max 500px)
 * [x] Layout — Toggle Sidebar: buton ‹/› la marginea sidebar-ului, width 0↔256px cu transition 0.2s
 * [x] Layout — Toggle Terminal: buton ⌄/⌃ în header terminal, collapse la 36px (doar header)
+* [x] UI — Sidebar: badge-uri colorate per extensie (JS galben, PY albastru, RS roșu etc.), 18×16px, border-radius 3px
 
 ## ❌ Erori Întâlnite și Încercări Eșuate
 *(Când primești o eroare, documentează abordarea greșită aici pentru a nu o repeta)*

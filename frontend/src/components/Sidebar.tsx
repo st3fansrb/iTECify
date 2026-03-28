@@ -35,6 +35,36 @@ function guessLanguage(filename: string): string {
   return EXT_TO_LANG[ext.toLowerCase()] ?? 'plaintext'
 }
 
+const EXT_BADGE: Record<string, { label: string; bg: string; color: string }> = {
+  js:  { label: 'JS',  bg: '#f7df1e', color: '#000' },
+  jsx: { label: 'JS',  bg: '#f7df1e', color: '#000' },
+  py:  { label: 'PY',  bg: '#3776ab', color: '#fff' },
+  rs:  { label: 'RS',  bg: '#ce422b', color: '#fff' },
+  ts:  { label: 'TS',  bg: '#3178c6', color: '#fff' },
+  tsx: { label: 'TS',  bg: '#3178c6', color: '#fff' },
+  go:  { label: 'GO',  bg: '#00acd7', color: '#fff' },
+  c:   { label: 'C',   bg: '#555597', color: '#fff' },
+  cpp: { label: 'C++', bg: '#004283', color: '#fff' },
+  md:  { label: 'MD',  bg: '#555',    color: '#fff' },
+}
+
+function FileBadge({ filename }: { filename: string }) {
+  const ext = filename.split('.').pop()?.toLowerCase() ?? ''
+  const badge = EXT_BADGE[ext]
+  if (!badge) return <span style={{ width: 18, display: 'inline-block' }} />
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+      width: 18, height: 16, borderRadius: 3,
+      background: badge.bg, color: badge.color,
+      fontSize: 9, fontWeight: 'bold',
+      marginRight: 6, flexShrink: 0, letterSpacing: '-0.02em',
+    }}>
+      {badge.label}
+    </span>
+  )
+}
+
 export default function Sidebar({ files, activeFile, onSelectFile, loading, onCreateFile }: SidebarProps) {
   const [expanded, setExpanded] = useState(true)
   const [creating, setCreating] = useState(false)
@@ -96,7 +126,7 @@ export default function Sidebar({ files, activeFile, onSelectFile, loading, onCr
                       : 'text-slate-400 hover:bg-slate-800 hover:text-white'
                   }`}
                 >
-                  <span className="text-xs">📄</span>
+                  <FileBadge filename={file.name} />
                   {file.name}
                 </li>
               )
