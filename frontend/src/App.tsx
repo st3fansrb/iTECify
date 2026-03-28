@@ -175,9 +175,10 @@ function EditorPage() {
   const handleRun = async () => {
     if (!activeFile) return
     setIsLoading(true)
-    setOutput('Running...')
+    setOutput('')
+
     try {
-      const res = await fetch('http://localhost:3001/api/execute', {
+      const res = await fetch('http://localhost:3001/api/execute/stream', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -185,12 +186,54 @@ function EditorPage() {
         },
         body: JSON.stringify({ language: activeFile.language, code: lastCodeRef.current }),
       })
-      const data = await res.json()
-      if (data.error) {
-        setOutput(`ERROR: ${data.error}`)
-      } else {
-        setOutput([data.stdout, data.stderr].filter(Boolean).join('\n') || '(no output)')
+
+      if (!res.ok || !res.body) {
+        const err = await res.json().catch(() => ({ error: 'Unknown error' }))
+        setOutput(`ERROR: ${err.error}`)
+        return
       }
+
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() ?? ''
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue
+          try {
+            const event = JSON.parse(line.slice(6))
+
+            if (event.type === 'stdout') {
+              setOutput(prev => prev + event.content)
+            } else if (event.type === 'stderr') {
+              setOutput(prev => prev + event.content)
+            } else if (event.type === 'scan') {
+              const warnings = event.warnings.map((w: { severity: string; message: string }) =>
+                `⚠ [${w.severity.toUpperCase()}] ${w.message}`
+              ).join('\n')
+              setOutput(prev => prev + warnings + '\n')
+            } else if (event.type === 'blocked') {
+              setOutput(prev => prev + `\n🛑 ${event.message}\n`)
+            } else if (event.type === 'error') {
+              setOutput(prev => prev + `ERROR: ${event.content}\n`)
+            }
+          } catch {
+            // skip malformed SSE line
+          }
+        }
+      }
+
+      if (!lastCodeRef.current.trim()) {
+        setOutput('(no output)')
+      }
+
     } catch {
       setOutput('ERROR: Could not reach backend (http://localhost:3001)')
     } finally {
