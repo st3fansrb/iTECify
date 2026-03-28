@@ -18,7 +18,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import supabase from '../lib/supabase'
 
-const DEBOUNCE_MS = 500
+const DEBOUNCE_MS = 150
 
 export interface UseRealtimeEditorOptions {
   projectId?: string
@@ -102,84 +102,75 @@ export function useRealtimeEditor({
     return () => { cancelled = true }
   }, [fileId])
 
-  // ── 2. Realtime channel: postgres_changes (per project) + presence ────────────
+  // ── 2. Realtime channel: postgres_changes + presence ─────────────────────────
   useEffect(() => {
-    let channelToClean: ReturnType<typeof supabase.channel> | null = null
+    let cancelled = false
+    const channelName = projectId ? `project-${projectId}` : `file-${fileId}`
+    const channel = supabase.channel(channelName)
+    channelRef.current = channel
 
-    const setup = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      const uid = user?.id ?? null
-      currentUserIdRef.current = uid
-      console.log('useRealtimeEditor init, fileId:', fileId, 'user:', uid)
-
-      // Fetch profile for presence display name / avatar
-      if (uid) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('display_name, avatar_color')
-          .eq('id', uid)
-          .maybeSingle()
-        if (profile) {
-          presenceRef.current.displayName = profile.display_name
-          presenceRef.current.avatarColor = profile.avatar_color
+    channel
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'files', ...(projectId ? { filter: `project_id=eq.${projectId}` } : { filter: `id=eq.${fileId}` }) },
+        (payload) => {
+          const updated = payload.new as { id: string; content: string; updated_by: string | null }
+          if (updated.id !== fileId) return
+          if (updated.updated_by === currentUserIdRef.current) return
+          setCode(updated.content ?? '')
         }
-      }
-
-      const channel = supabase.channel(projectId ? `project-${projectId}` : `file-${fileId}`)
-      channelToClean = channel
-      channelRef.current = channel
-
-      channel
-        // All file UPDATE events for this project — filter to active file client-side
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'files', ...(projectId ? { filter: `project_id=eq.${projectId}` } : { filter: `id=eq.${fileId}` }) },
-          (payload) => {
-            const updated = payload.new as { id: string; content: string; updated_by: string | null }
-            if (updated.id !== fileId) return
-            if (updated.updated_by === currentUserIdRef.current) return
-            setCode(updated.content ?? '')
+      )
+      .on('presence', { event: 'sync' }, () => {
+        if (cancelled) return
+        const uid = currentUserIdRef.current
+        const state = channel.presenceState<PresencePayload>()
+        const seen = new Set<string>()
+        const users: ConnectedUser[] = Object.values(state)
+          .flat()
+          .filter((p) => {
+            if (!p.userId || p.userId === uid || seen.has(p.userId)) return false
+            seen.add(p.userId)
+            return true
+          })
+          .map((p) => ({
+            userId: p.userId,
+            displayName: p.displayName ?? null,
+            avatarColor: p.avatarColor ?? null,
+            cursor: p.cursor ?? null,
+            activeFileId: p.activeFileId ?? null,
+          }))
+        setConnectedUsers(users)
+      })
+      .subscribe(async (status) => {
+        if (cancelled) return
+        if (status === 'SUBSCRIBED') {
+          // Fetch user + profile only after channel is ready
+          const { data: { user } } = await supabase.auth.getUser()
+          const uid = user?.id ?? null
+          currentUserIdRef.current = uid
+          if (uid) {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('display_name, avatar_color')
+              .eq('id', uid)
+              .maybeSingle()
+            if (profile) {
+              presenceRef.current.displayName = profile.display_name
+              presenceRef.current.avatarColor = profile.avatar_color
+            }
+            await channel.track({ userId: uid, ...presenceRef.current, activeFileId: fileId })
           }
-        )
-        // Presence: who's in this room right now
-        .on('presence', { event: 'sync' }, () => {
-          const state = channel.presenceState<PresencePayload>()
-          console.log('presence state:', state)
-          const seen = new Set<string>()
-          const users: ConnectedUser[] = Object.values(state)
-            .flat()
-            .filter((p) => {
-              if (!p.userId || p.userId === uid || seen.has(p.userId)) return false
-              seen.add(p.userId)
-              return true
-            })
-            .map((p) => ({
-              userId: p.userId,
-              displayName: p.displayName ?? null,
-              avatarColor: p.avatarColor ?? null,
-              cursor: p.cursor ?? null,
-              activeFileId: p.activeFileId ?? null,
-            }))
-          setConnectedUsers(users)
-        })
-        .subscribe(async (status) => {
-          console.log('channel subscribed, status:', status)
-          if (status === 'SUBSCRIBED' && uid) {
-            console.log('tracking presence')
-            await channel.track({
-              userId: uid,
-              ...presenceRef.current,
-              activeFileId: fileId,
-            })
-          }
-        })
-    }
-
-    void setup()
+        }
+        // Auto-reconnect on error
+        if (status === 'CHANNEL_ERROR' && !cancelled) {
+          setTimeout(() => void supabase.removeChannel(channel), 2000)
+        }
+      })
 
     return () => {
+      cancelled = true
       if (debounceTimer.current) clearTimeout(debounceTimer.current)
-      if (channelToClean) void supabase.removeChannel(channelToClean)
+      void supabase.removeChannel(channel)
       channelRef.current = null
     }
   }, [projectId, fileId])
