@@ -1,7 +1,7 @@
 import Editor, { type OnMount } from '@monaco-editor/react'
 import type * as monacoType from 'monaco-editor'
 import { useRef, useEffect } from 'react'
-import type { ConnectedUser } from '../hooks/useRealtimeEditor'
+import type { ConnectedUser, CursorPosition } from '../hooks/useRealtimeEditor'
 
 interface CodeEditorProps {
   language: string
@@ -9,7 +9,9 @@ interface CodeEditorProps {
   onChange: (value: string) => void
   onEditorMount?: (editor: monacoType.editor.IStandaloneCodeEditor) => void
   connectedUsers?: ConnectedUser[]
-  onCursorChange?: (line: number | null) => void
+  remoteCursors?: ConnectedUser[]
+  activeFileId?: string
+  onCursorChange?: (cursor: CursorPosition | null) => void
   readOnly?: boolean
   currentUserId?: string | null
 }
@@ -55,14 +57,14 @@ export default function CodeEditor({
 
     if (onCursorChange) {
       editor.onDidChangeCursorPosition((e) => {
-        onCursorChange(e.position.lineNumber)
+        onCursorChange({ lineNumber: e.position.lineNumber, column: e.position.column })
       })
     }
 
     onEditorMount?.(editor)
   }
 
-  // ── Remote cursor decorations + contentWidgets ────────────────────────────────
+  // ── Remote cursor decorations + ContentWidgets ────────────────────────────────
   useEffect(() => {
     const editor = editorRef.current
     const monaco = monacoRef.current
@@ -78,6 +80,7 @@ export default function CodeEditor({
     const remote = connectedUsers.filter(
       u => u.cursor !== null && u.userId !== currentUserId
     )
+    console.log('remoteCursors:', remote)
 
     // Build CSS for line backgrounds and inject into <head>
     const css = remote.map((u, i) => {
@@ -97,8 +100,9 @@ export default function CodeEditor({
     const decorations: monacoType.editor.IModelDeltaDecoration[] = remote.map((u, i) => {
       const color = u.avatarColor ?? FALLBACK_COLORS[i % FALLBACK_COLORS.length]
       const safeId = u.userId.replace(/[^a-zA-Z0-9]/g, '')
+      const lineNumber = u.cursor!.lineNumber
       return {
-        range: new monaco.Range(u.cursor!, 1, u.cursor!, 1),
+        range: new monaco.Range(lineNumber, 1, lineNumber, 1),
         options: {
           isWholeLine: true,
           className: `rcursor-${safeId}`,
@@ -113,24 +117,24 @@ export default function CodeEditor({
     remote.forEach((u, i) => {
       const color = u.avatarColor ?? FALLBACK_COLORS[i % FALLBACK_COLORS.length]
       const label = u.displayName ?? u.userId.slice(0, 6)
-      const line = u.cursor!
+      const { lineNumber, column } = u.cursor!
 
       const dom = document.createElement('div')
       dom.style.cssText = [
         `background:${color}`,
-        `color:#0f0c29`,
-        `font-size:10px`,
-        `font-weight:700`,
-        `font-family:JetBrains Mono,Fira Code,monospace`,
-        `padding:1px 7px`,
-        `border-radius:3px`,
-        `pointer-events:none`,
-        `white-space:nowrap`,
-        `user-select:none`,
-        `line-height:16px`,
-        `opacity:0.92`,
-        `margin-bottom:1px`,
-        `display:inline-block`,
+        'color:#0f0c29',
+        'font-size:10px',
+        'font-weight:700',
+        'font-family:JetBrains Mono,Fira Code,monospace',
+        'padding:1px 7px',
+        'border-radius:3px',
+        'pointer-events:none',
+        'white-space:nowrap',
+        'user-select:none',
+        'line-height:16px',
+        'opacity:0.92',
+        'margin-bottom:1px',
+        'display:inline-block',
       ].join(';')
       dom.textContent = label
 
@@ -138,7 +142,7 @@ export default function CodeEditor({
         getId: () => `rcursor-widget-${u.userId}`,
         getDomNode: () => dom,
         getPosition: () => ({
-          position: { lineNumber: line, column: 1 },
+          position: { lineNumber, column },
           preference: [
             monaco.editor.ContentWidgetPositionPreference.ABOVE,
             monaco.editor.ContentWidgetPositionPreference.BELOW,
@@ -151,9 +155,14 @@ export default function CodeEditor({
     })
   }, [connectedUsers, currentUserId])
 
-  // Clean up style tag on unmount
+  // Clean up style tag + widgets + decorations on unmount
   useEffect(() => {
     return () => {
+      const editor = editorRef.current
+      if (editor) {
+        widgetListRef.current.forEach(w => { try { editor.removeContentWidget(w) } catch (_) {} })
+        editor.deltaDecorations(decorationIdsRef.current, [])
+      }
       styleTagRef.current?.remove()
       styleTagRef.current = null
     }

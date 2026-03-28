@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useState, useEffect, useRef } from 'react'
 import Sidebar from './components/Sidebar'
 import CodeEditor from './components/CodeEditor'
@@ -13,6 +13,7 @@ import { useProjectFiles } from './hooks/useProjectFiles'
 import { useProjectMembers } from './hooks/useProjectMembers'
 import { useRealtimeEditor, type ConnectedUser } from './hooks/useRealtimeEditor'
 import { useSharedTerminal } from './hooks/useSharedTerminal'
+import { usePersonalTerminal } from './hooks/usePersonalTerminal'
 import ConnectedUsers from './components/ConnectedUsers'
 import UserMenu from './components/UserMenu'
 import AIBlock from './components/AIBlock'
@@ -123,9 +124,14 @@ function RealtimeEditor({
 }
 
 function EditorPage() {
-  const { files, loading: filesLoading, addFile, projectId } = useProjectFiles()
+  const location = useLocation()
+  const navigate = useNavigate()
+  const externalProjectId = (location.state as { projectId?: string } | null)?.projectId
+  const { files, loading: filesLoading, addFile, restoreDefaults, projectId, projectName } = useProjectFiles(externalProjectId)
   const { outputs, broadcast, clearOutputs } = useSharedTerminal(projectId)
+  const { personalOutputs, addPersonalEntry, clearPersonalOutputs } = usePersonalTerminal()
   const members = useProjectMembers(projectId)
+
 
   const [activeFileId, setActiveFileId] = useState<string>('')
   const [connectedUsers, setConnectedUsers] = useState<ConnectedUser[]>([])
@@ -134,6 +140,9 @@ function EditorPage() {
   const [isBlocked, setIsBlocked] = useState(false)
   const [stdin, setStdin] = useState('')
   const [toast, setToast] = useState(false)
+  const [editorMode, setEditorMode] = useState<'shared' | 'personal'>('shared')
+  const [personalCode, setPersonalCode] = useState('')
+  const personalCodeMap = useRef<Map<string, string>>(new Map())
   const toastShownRef = useRef(false)
   const lastCodeRef = useRef('')
   const { user, session, signOut } = useAuth()
@@ -170,6 +179,27 @@ function EditorPage() {
 
   const activeFile = files.find(f => f.id === activeFileId)
 
+  // Restore personal code for the newly selected file
+  useEffect(() => {
+    if (!activeFileId) return
+    setPersonalCode(personalCodeMap.current.get(activeFileId) ?? '')
+    if (editorMode === 'personal') {
+      lastCodeRef.current = personalCodeMap.current.get(activeFileId) ?? ''
+    }
+  }, [activeFileId])
+
+  const handlePersonalCodeChange = (code: string) => {
+    setPersonalCode(code)
+    personalCodeMap.current.set(activeFileId, code)
+    lastCodeRef.current = code
+    if (toastShownRef.current) return
+    if (code.toLowerCase().includes('itecify')) {
+      toastShownRef.current = true
+      setToast(true)
+      setTimeout(() => setToast(false), 4000)
+    }
+  }
+
   const handleCodeChange = (code: string) => {
     lastCodeRef.current = code
     if (toastShownRef.current) return
@@ -195,6 +225,7 @@ function EditorPage() {
     const userId = user?.id ?? 'unknown'
 
     broadcast({ userId, displayName, avatarColor: '#f472b6', type: 'command', content: `${activeFile.language}: ${activeFile.name}`, timestamp: new Date().toISOString() })
+    addPersonalEntry({ userId, displayName, avatarColor: '#f472b6', type: 'command', content: `${activeFile.language}: ${activeFile.name}`, timestamp: new Date().toISOString() })
 
     try {
       const res = await fetch('/api/execute/stream', {
@@ -239,9 +270,11 @@ function EditorPage() {
             if (event.type === 'stdout') {
               setOutput(prev => prev + event.content)
               broadcast({ userId, displayName, avatarColor: '#f472b6', type: 'stdout', content: event.content, timestamp: new Date().toISOString() })
+              addPersonalEntry({ userId, displayName, avatarColor: '#f472b6', type: 'stdout', content: event.content, timestamp: new Date().toISOString() })
             } else if (event.type === 'stderr') {
               setOutput(prev => prev + event.content)
               broadcast({ userId, displayName, avatarColor: '#f472b6', type: 'stderr', content: event.content, timestamp: new Date().toISOString() })
+              addPersonalEntry({ userId, displayName, avatarColor: '#f472b6', type: 'stderr', content: event.content, timestamp: new Date().toISOString() })
             } else if (event.type === 'scan') {
               const warnings = event.warnings.map((w: { severity: string; message: string }) =>
                 `⚠ [${w.severity.toUpperCase()}] ${w.message}`
@@ -253,8 +286,10 @@ function EditorPage() {
             } else if (event.type === 'error') {
               setOutput(prev => prev + `ERROR: ${event.content}\n`)
               broadcast({ userId, displayName, avatarColor: '#f472b6', type: 'stderr', content: `ERROR: ${event.content}\n`, timestamp: new Date().toISOString() })
+              addPersonalEntry({ userId, displayName, avatarColor: '#f472b6', type: 'stderr', content: `ERROR: ${event.content}\n`, timestamp: new Date().toISOString() })
             } else if (event.type === 'exit') {
               broadcast({ userId, displayName, avatarColor: '#f472b6', type: 'exit', content: String(event.code ?? 0), timestamp: new Date().toISOString() })
+              addPersonalEntry({ userId, displayName, avatarColor: '#f472b6', type: 'exit', content: String(event.code ?? 0), timestamp: new Date().toISOString() })
             }
           } catch {
             // skip malformed SSE line
@@ -302,8 +337,11 @@ function EditorPage() {
           onSelectFile={setActiveFileId}
           loading={filesLoading}
           onCreateFile={addFile}
+          onRestoreDefaults={restoreDefaults}
           members={members}
           onlineUserIds={connectedUsers.map(u => u.userId)}
+          projectName={projectName}
+          onNewProject={() => navigate('/dashboard')}
         />
       </div>
 
@@ -337,19 +375,86 @@ function EditorPage() {
           background: 'rgba(0,0,0,0.25)',
           backdropFilter: 'blur(10px)',
           borderBottom: '1px solid rgba(255,255,255,0.08)',
-          padding: '0 8px',
+          padding: '4px 8px',
+          gap: '4px',
         }}>
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
-{files.map((file) => (
-              <button key={file.id} onClick={() => setActiveFileId(file.id)} style={{
-                padding: '8px 16px', fontSize: '12px',
-                background: activeFileId === file.id ? 'rgba(236,72,153,0.1)' : 'transparent',
-                color: activeFileId === file.id ? '#f9a8d4' : 'rgba(255,255,255,0.35)',
-                border: 'none',
-                borderTop: activeFileId === file.id ? '2px solid #f472b6' : '2px solid transparent',
-                cursor: 'pointer', transition: 'all 0.2s', fontFamily: 'monospace',
-              }}>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '4px' }}>
+            {files.map((file) => (
+              <button
+                key={file.id}
+                onClick={() => setActiveFileId(file.id)}
+                style={{
+                  padding: '5px 14px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  fontFamily: 'monospace',
+                  letterSpacing: '0.03em',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  background: activeFileId === file.id ? 'rgba(236,72,153,0.25)' : 'rgba(255,255,255,0.05)',
+                  border: activeFileId === file.id ? '1.5px solid #f472b6' : '1.5px solid rgba(255,255,255,0.15)',
+                  color: activeFileId === file.id ? '#f9a8d4' : 'rgba(255,255,255,0.4)',
+                }}
+                onMouseEnter={e => {
+                  if (activeFileId !== file.id) {
+                    e.currentTarget.style.background = 'rgba(236,72,153,0.1)'
+                    e.currentTarget.style.borderColor = 'rgba(244,114,182,0.4)'
+                    e.currentTarget.style.color = 'rgba(249,168,212,0.7)'
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (activeFileId !== file.id) {
+                    e.currentTarget.style.background = 'rgba(255,255,255,0.05)'
+                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'
+                    e.currentTarget.style.color = 'rgba(255,255,255,0.4)'
+                  }
+                }}
+              >
                 {file.name}
+              </button>
+            ))}
+          </div>
+          {/* Editor mode toggle */}
+          <div style={{ display: 'flex', gap: '5px', marginLeft: '8px', marginRight: '4px' }}>
+            {(['shared', 'personal'] as const).map(mode => (
+              <button
+                key={mode}
+                onClick={() => {
+                  setEditorMode(mode)
+                  if (mode === 'personal') {
+                    lastCodeRef.current = personalCodeMap.current.get(activeFileId) ?? ''
+                  }
+                }}
+                style={{
+                  padding: '5px 14px',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  fontFamily: 'monospace',
+                  letterSpacing: '0.03em',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  background: editorMode === mode ? 'rgba(236,72,153,0.25)' : 'rgba(255,255,255,0.05)',
+                  border: editorMode === mode ? '1.5px solid #f472b6' : '1.5px solid rgba(255,255,255,0.15)',
+                  color: editorMode === mode ? '#f9a8d4' : 'rgba(255,255,255,0.4)',
+                }}
+                onMouseEnter={e => {
+                  if (editorMode !== mode) {
+                    e.currentTarget.style.background = 'rgba(236,72,153,0.1)'
+                    e.currentTarget.style.borderColor = 'rgba(244,114,182,0.4)'
+                    e.currentTarget.style.color = 'rgba(249,168,212,0.7)'
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (editorMode !== mode) {
+                    e.currentTarget.style.background = 'rgba(255,255,255,0.05)'
+                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'
+                    e.currentTarget.style.color = 'rgba(255,255,255,0.4)'
+                  }
+                }}
+              >
+                {mode === 'shared' ? '👥 Shared' : '🔒 Personal'}
               </button>
             ))}
           </div>
@@ -363,19 +468,42 @@ function EditorPage() {
             )}
         </div>
 
-        {/* Editor area — remount when file changes to reset realtime state */}
+        {/* Editor area */}
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           {activeFileId && activeFile ? (
-            <RealtimeEditor
-              key={activeFileId}
-              fileId={activeFileId}
-              projectId={projectId || undefined}
-              language={activeFile.language}
-              onCodeChange={handleCodeChange}
-              onUsersChange={setConnectedUsers}
-              timeTravelContent={timeTravelContent}
-              currentUserId={user?.id}
-            />
+            editorMode === 'shared' ? (
+              <RealtimeEditor
+                key={activeFileId}
+                projectId={projectId || undefined}
+                fileId={activeFileId}
+                language={activeFile.language}
+                onCodeChange={handleCodeChange}
+                onUsersChange={setConnectedUsers}
+                timeTravelContent={timeTravelContent}
+                currentUserId={user?.id}
+              />
+            ) : (
+              <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                <div style={{
+                  flexShrink: 0,
+                  background: 'rgba(139,92,246,0.08)',
+                  borderBottom: '1px solid rgba(139,92,246,0.2)',
+                  padding: '4px 16px',
+                  fontSize: '11px', fontFamily: 'monospace',
+                  color: 'rgba(139,92,246,0.7)',
+                  letterSpacing: '0.04em',
+                }}>
+                  🔒 Personal Editor — visible only to you
+                </div>
+                <div style={{ flex: 1, overflow: 'hidden' }}>
+                  <CodeEditor
+                    language={activeFile.language}
+                    value={personalCode}
+                    onChange={handlePersonalCodeChange}
+                  />
+                </div>
+              </div>
+            )
           ) : (
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.2)', fontFamily: 'monospace', fontSize: '13px' }}>
               {filesLoading ? 'Loading project…' : 'No files found'}
@@ -433,11 +561,13 @@ function EditorPage() {
             onForceRun={() => handleRun(true)}
             stdin={stdin}
             onStdinChange={setStdin}
+            personalEntries={personalOutputs}
+            onClearPersonal={clearPersonalOutputs}
           />
         </div>
       </div>
 
-      <AIBlock currentCode={lastCodeRef.current} language={activeFile?.language ?? 'plaintext'} />
+      <AIBlock currentCode={lastCodeRef.current} language={activeFile?.language ?? 'plaintext'} terminalHeight={terminalHeight} terminalCollapsed={terminalCollapsed} />
 
       {toast && (
         <div style={{
