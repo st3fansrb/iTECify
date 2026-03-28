@@ -27,32 +27,39 @@ export interface UseRealtimeEditorOptions {
   initialContent: string
 }
 
+export interface CursorPosition {
+  lineNumber: number
+  column: number
+}
+
 export interface ConnectedUser {
   userId: string
   displayName: string | null
   avatarColor: string | null
-  /** Monaco editor line number (1-based), null if not reported. */
-  cursor: number | null
+  /** Monaco cursor position (1-based), null if not reported. */
+  cursor: CursorPosition | null
   activeFileId: string | null
 }
 
 export interface UseRealtimeEditorReturn {
   code: string
   updateCode: (newContent: string) => void
-  /** Call with the current Monaco cursor line to broadcast position to teammates. */
-  updateCursor: (line: number | null) => void
+  /** Call with the current Monaco cursor position to broadcast to teammates. */
+  updateCursor: (cursor: CursorPosition | null) => void
   loading: boolean
   /** True during the 500ms debounce + DB write. */
   isSaving: boolean
   /** Everyone currently in this project room, with cursor + active file. */
   connectedUsers: ConnectedUser[]
+  /** Same as connectedUsers — use in CodeEditor for remote cursor rendering. */
+  remoteCursors: ConnectedUser[]
 }
 
 type PresencePayload = {
   userId: string
   displayName: string | null
   avatarColor: string | null
-  cursor: number | null
+  cursor: CursorPosition | null
   activeFileId: string | null
 }
 
@@ -103,6 +110,7 @@ export function useRealtimeEditor({
       const { data: { user } } = await supabase.auth.getUser()
       const uid = user?.id ?? null
       currentUserIdRef.current = uid
+      console.log('useRealtimeEditor init, fileId:', fileId, 'user:', uid)
 
       // Fetch profile for presence display name / avatar
       if (uid) {
@@ -134,8 +142,9 @@ export function useRealtimeEditor({
           }
         )
         // Presence: who's in this room right now
-        .on<PresencePayload>('presence', { event: 'sync' }, () => {
+        .on('presence', { event: 'sync' }, () => {
           const state = channel.presenceState<PresencePayload>()
+          console.log('presence state:', state)
           const users: ConnectedUser[] = Object.values(state)
             .flat()
             .map((p) => ({
@@ -148,7 +157,9 @@ export function useRealtimeEditor({
           setConnectedUsers(users)
         })
         .subscribe(async (status) => {
+          console.log('channel subscribed, status:', status)
           if (status === 'SUBSCRIBED' && uid) {
+            console.log('tracking presence')
             await channel.track({
               userId: uid,
               ...presenceRef.current,
@@ -168,11 +179,11 @@ export function useRealtimeEditor({
   }, [projectId, fileId])
 
   // ── 3. updateCursor — broadcast cursor position to teammates ─────────────────
-  const updateCursor = useCallback((line: number | null) => {
+  const updateCursor = useCallback((cursor: CursorPosition | null) => {
     const channel = channelRef.current
     const uid = currentUserIdRef.current
     if (!channel || !uid) return
-    presenceRef.current.cursor = line
+    presenceRef.current.cursor = cursor
     void channel.track({ userId: uid, ...presenceRef.current, activeFileId: fileId })
   }, [fileId])
 
@@ -200,5 +211,5 @@ export function useRealtimeEditor({
     [fileId]
   )
 
-  return { code, updateCode, updateCursor, loading, isSaving, connectedUsers }
+  return { code, updateCode, updateCursor, loading, isSaving, connectedUsers, remoteCursors: connectedUsers }
 }

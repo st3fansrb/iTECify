@@ -92,5 +92,5 @@ export async function getUserProjects(userId: string): Promise<UserProject[]> {
     .order('project_id')
 
   if (error) throw new Error(`getUserProjects: ${error.message}`)
-  return (data ?? []) as UserProject[]
+  return (data ?? []) as unknown as UserProject[]
 }

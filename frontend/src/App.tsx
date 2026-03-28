@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useState, useEffect, useRef } from 'react'
 import Sidebar from './components/Sidebar'
 import CodeEditor from './components/CodeEditor'
@@ -54,13 +54,14 @@ const ORBS = (
   </>
 )
 
-interface ConnectedUser { user_id: string; cursor_line: number | null }
+import type { ConnectedUser } from './hooks/useRealtimeEditor'
 
 // ── Inner component that holds realtime state for the active file ──────────────
 function RealtimeEditor({
-  fileId, language, onCodeChange, onUsersChange, timeTravelContent,
-}: { fileId: string; language: string; onCodeChange: (code: string) => void; onUsersChange: (users: ConnectedUser[]) => void; timeTravelContent: string | null }) {
-  const { code, updateCode, updateCursor, loading, isSaving, connectedUsers } = useRealtimeEditor({
+  projectId, fileId, language, onCodeChange, onUsersChange, timeTravelContent,
+}: { projectId: string; fileId: string; language: string; onCodeChange: (code: string) => void; onUsersChange: (users: ConnectedUser[]) => void; timeTravelContent: string | null }) {
+  const { code, updateCode, updateCursor, loading, isSaving, connectedUsers, remoteCursors } = useRealtimeEditor({
+    projectId,
     fileId,
     initialContent: '',
   })
@@ -112,6 +113,8 @@ function RealtimeEditor({
         value={isTimeTraveling ? timeTravelContent! : code}
         onChange={handleChange}
         connectedUsers={isTimeTraveling ? [] : connectedUsers}
+        remoteCursors={isTimeTraveling ? [] : remoteCursors}
+        activeFileId={fileId}
         onCursorChange={isTimeTraveling ? undefined : updateCursor}
         readOnly={isTimeTraveling}
       />
@@ -120,8 +123,7 @@ function RealtimeEditor({
 }
 
 function EditorPage() {
-  const { files, loading: filesLoading, addFile } = useProjectFiles()
-  const navigate = useNavigate()
+  const { files, loading: filesLoading, addFile, projectId } = useProjectFiles()
   const [activeFileId, setActiveFileId] = useState<string>('')
   const [connectedUsers, setConnectedUsers] = useState<ConnectedUser[]>([])
   const [output, setOutput] = useState('')
@@ -313,6 +315,7 @@ function EditorPage() {
           {activeFileId && activeFile ? (
             <RealtimeEditor
               key={activeFileId}
+              projectId={projectId}
               fileId={activeFileId}
               language={activeFile.language}
               onCodeChange={handleCodeChange}

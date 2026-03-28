@@ -4,11 +4,7 @@
  */
 
 import { useProfile } from '../hooks/useProfile'
-
-interface ConnectedUser {
-  user_id: string
-  cursor_line: number | null
-}
+import type { ConnectedUser } from '../hooks/useRealtimeEditor'
 
 interface ConnectedUsersProps {
   users: ConnectedUser[]
@@ -79,10 +75,10 @@ export default function ConnectedUsers({ users, currentUserId }: ConnectedUsersP
       <div style={{ display: 'flex', alignItems: 'center' }}>
         {users.map((u, i) => (
           <UserDot
-            key={u.user_id}
-            userId={u.user_id}
+            key={u.userId}
+            userId={u.userId}
             index={i}
-            isSelf={u.user_id === currentUserId}
+            isSelf={u.userId === currentUserId}
           />
         ))}
       </div>
