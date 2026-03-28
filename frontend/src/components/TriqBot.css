@@ -1,0 +1,242 @@
+/* ── LAYOUT ── */
+.triq-wrap {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 1000;
+}
+
+.triq-row {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.triq-avatar-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* ── AVATAR ── */
+.triq-btn {
+  cursor: pointer;
+  user-select: none;
+}
+
+.triq-svg {
+  display: block;
+  overflow: visible;
+  animation: triqFloat 4s ease-in-out infinite;
+  filter: drop-shadow(0 2px 14px rgba(120, 60, 220, 0.4));
+  transition: filter 0.3s, width 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+    height 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.triq-svg.open {
+  animation: triqFloat 4s ease-in-out infinite;
+  filter: drop-shadow(0 4px 24px rgba(160, 100, 255, 0.6));
+}
+
+.triq-hint {
+  font-size: 11px;
+  color: #888;
+  font-family: sans-serif;
+  text-align: center;
+  margin: 0;
+}
+
+/* ── CHAT ── */
+.triq-chat-col {
+  animation: triqChatIn 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+  margin-bottom: 28px;
+}
+
+.triq-chat {
+  width: 280px;
+  border: 1px solid #2d1a4a;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #100820;
+  box-shadow: 0 8px 32px rgba(80, 20, 160, 0.25);
+}
+
+.triq-chat-header {
+  padding: 10px 14px;
+  background: #1a0f30;
+  border-bottom: 1px solid #2d1a4a;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.triq-header-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #a78bfa;
+  animation: triqBreathe 2s ease-in-out infinite;
+}
+
+.triq-header-title {
+  font-family: sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: #c4b5fd;
+  letter-spacing: 0.06em;
+}
+
+.triq-messages {
+  height: 200px;
+  overflow-y: auto;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  background: #100820;
+}
+
+.triq-messages::-webkit-scrollbar {
+  width: 3px;
+}
+.triq-messages::-webkit-scrollbar-thumb {
+  background: #3b1f6a;
+  border-radius: 2px;
+}
+
+.triq-msg {
+  max-width: 85%;
+  padding: 7px 10px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-family: sans-serif;
+  line-height: 1.5;
+}
+
+.triq-msg-bot {
+  background: #1a0f30;
+  color: #ddd6fe;
+  align-self: flex-start;
+  border-bottom-left-radius: 3px;
+  border: 1px solid #2d1a4a;
+}
+
+.triq-msg-user {
+  background: #2d1a4a;
+  color: #ede9fe;
+  align-self: flex-end;
+  border-bottom-right-radius: 3px;
+}
+
+.triq-thinking {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  padding: 8px 12px;
+  background: #1a0f30;
+  border-radius: 10px;
+  border-bottom-left-radius: 3px;
+  border: 1px solid #2d1a4a;
+  align-self: flex-start;
+}
+
+.triq-thinking span {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #8b5cf6;
+}
+.triq-thinking span:nth-child(1) { animation: triqDot 1s infinite 0s; }
+.triq-thinking span:nth-child(2) { animation: triqDot 1s infinite 0.2s; }
+.triq-thinking span:nth-child(3) { animation: triqDot 1s infinite 0.4s; }
+
+.triq-input-row {
+  display: flex;
+  gap: 6px;
+  padding: 9px 10px;
+  background: #100820;
+  border-top: 1px solid #1e1038;
+}
+
+.triq-input {
+  flex: 1;
+  padding: 7px 12px;
+  border-radius: 18px;
+  border: 1px solid #2d1a4a;
+  background: #1a0f30;
+  color: #ddd6fe;
+  font-size: 13px;
+  font-family: sans-serif;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.triq-input:focus { border-color: #7c3aed; }
+.triq-input::placeholder { color: #5b3f80; }
+
+.triq-send {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #5b21b6;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+.triq-send:hover { background: #7c3aed; }
+.triq-send:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── ANIMATIONS ── */
+@keyframes triqFloat {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-6px); }
+}
+
+@keyframes triqChatIn {
+  from { opacity: 0; transform: translateX(8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes triqBreathe {
+  0%, 100% { opacity: 0.4; }
+  50%       { opacity: 1; }
+}
+
+@keyframes triqDot {
+  0%, 100% { opacity: 0.25; transform: scale(0.75); }
+  50%       { opacity: 1;    transform: scale(1.2); }
+}
+
+@keyframes triqEyeGlow {
+  0%, 100% { opacity: 0.6; }
+  50%       { opacity: 1; }
+}
+
+@keyframes triqRankPulse {
+  0%, 100% { opacity: 0.8; }
+  50%       { opacity: 1; }
+}
+
+@keyframes triqCapeWave {
+  0%, 100% { transform: scaleX(1); }
+  50%       { transform: scaleX(1.012); }
+}
+
+/* SVG animation classes */
+.triq-cape {
+  animation: triqCapeWave 5s ease-in-out infinite;
+  transform-origin: 90px 152px;
+}
+.triq-eye-glow  { animation: triqEyeGlow 3s ease-in-out infinite; }
+.triq-eye-glow-d { animation: triqEyeGlow 3s ease-in-out infinite 0.2s; }
+.triq-breathe   { animation: triqBreathe 2.2s ease-in-out infinite; }
+.triq-breathe-d { animation: triqBreathe 2.2s ease-in-out infinite 1.1s; }
+.triq-rank-pulse    { animation: triqRankPulse 2s ease-in-out infinite 0s; }
+.triq-rank-pulse-d1 { animation: triqRankPulse 2s ease-in-out infinite 0.3s; }
+.triq-rank-pulse-d2 { animation: triqRankPulse 2s ease-in-out infinite 0.6s; }
