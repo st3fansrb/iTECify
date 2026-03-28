@@ -30,7 +30,7 @@ const DOCKER_RUNNERS = {
     cmd: ['sh', '-c', 'cat /sandbox/stdin.txt | go run /sandbox/code.go'],
   },
   java: {
-    image: 'openjdk:17-alpine',
+    image: 'eclipse-temurin:17-alpine',
     file: 'Main.java',
     cmd: ['sh', '-c', 'javac /sandbox/Main.java -d /tmp && cat /sandbox/stdin.txt | java -cp /tmp Main'],
   },
