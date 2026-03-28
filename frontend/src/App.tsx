@@ -67,6 +67,9 @@ function RealtimeEditor({
   // Propagate connected users up to EditorPage
   useEffect(() => { onUsersChange(connectedUsers) }, [connectedUsers, onUsersChange])
 
+  // Propagate initial loaded code so Run works without typing first
+  useEffect(() => { if (!loading && code) onCodeChange(code) }, [loading])
+
   const handleChange = (val: string) => {
     updateCode(val)
     onCodeChange(val)
