@@ -241,18 +241,18 @@ export default function AIBlock({ currentCode, language, terminalHeight = 192, t
                 {m.role === 'assistant' && insertCode && (
                   <button
                     onClick={() => insertCode(m.text)}
-                    title="Insert at cursor"
+                    title="Accept — insert AI code at cursor"
                     style={{
                       alignSelf: 'flex-start',
-                      padding: '2px 8px', fontSize: '10px', fontFamily: 'monospace', fontWeight: 600,
-                      background: 'rgba(129,140,248,0.15)', border: '1px solid rgba(129,140,248,0.3)',
-                      borderRadius: '4px', color: '#818cf8', cursor: 'pointer',
+                      padding: '2px 10px', fontSize: '10px', fontFamily: 'monospace', fontWeight: 700,
+                      background: 'rgba(52,211,153,0.15)', border: '1px solid rgba(52,211,153,0.4)',
+                      borderRadius: '4px', color: '#34d399', cursor: 'pointer',
                       transition: 'opacity 0.2s',
                     }}
                     onMouseEnter={e => { e.currentTarget.style.opacity = '0.7' }}
                     onMouseLeave={e => { e.currentTarget.style.opacity = '1' }}
                   >
-                    ↳ Insert at cursor
+                    ✓ Accept
                   </button>
                 )}
               </div>
