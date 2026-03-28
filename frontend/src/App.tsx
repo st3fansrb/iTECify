@@ -14,6 +14,7 @@ import { useRealtimeEditor } from './hooks/useRealtimeEditor'
 import ConnectedUsers from './components/ConnectedUsers'
 import AIBlock from './components/AIBlock'
 import DashboardPage from './pages/DashboardPage'
+import TimeTravel from './components/TimeTravel'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -57,8 +58,8 @@ interface ConnectedUser { user_id: string; cursor_line: number | null }
 
 // ── Inner component that holds realtime state for the active file ──────────────
 function RealtimeEditor({
-  fileId, language, onCodeChange, onUsersChange,
-}: { fileId: string; language: string; onCodeChange: (code: string) => void; onUsersChange: (users: ConnectedUser[]) => void }) {
+  fileId, language, onCodeChange, onUsersChange, timeTravelContent,
+}: { fileId: string; language: string; onCodeChange: (code: string) => void; onUsersChange: (users: ConnectedUser[]) => void; timeTravelContent: string | null }) {
   const { code, updateCode, updateCursor, loading, isSaving, connectedUsers } = useRealtimeEditor({
     fileId,
     initialContent: '',
@@ -75,6 +76,8 @@ function RealtimeEditor({
     onCodeChange(val)
   }
 
+  const isTimeTraveling = timeTravelContent !== null
+
   if (loading) return (
     <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(249,168,212,0.5)', fontFamily: 'monospace', fontSize: '13px' }}>
       Loading file…
@@ -83,17 +86,34 @@ function RealtimeEditor({
 
   return (
     <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
-      {isSaving && (
+      {/* Time-travel overlay banner */}
+      {isTimeTraveling && (
+        <div style={{
+          position: 'absolute', top: 0, left: 0, right: 0, zIndex: 20,
+          background: 'rgba(249,168,212,0.1)',
+          borderBottom: '1px solid rgba(249,168,212,0.25)',
+          padding: '6px 16px',
+          fontSize: '11px', fontFamily: 'monospace',
+          color: 'rgba(249,168,212,0.85)',
+          letterSpacing: '0.04em',
+          backdropFilter: 'blur(6px)',
+          pointerEvents: 'none',
+        }}>
+          🕐 Time-Travel Mode — viewing a past snapshot (read-only)
+        </div>
+      )}
+      {isSaving && !isTimeTraveling && (
         <div style={{ position: 'absolute', top: 8, right: 12, zIndex: 20, fontSize: '10px', color: 'rgba(249,168,212,0.5)', fontFamily: 'monospace', pointerEvents: 'none' }}>
           saving…
         </div>
       )}
       <CodeEditor
         language={language}
-        value={code}
+        value={isTimeTraveling ? timeTravelContent! : code}
         onChange={handleChange}
-        connectedUsers={connectedUsers}
-        onCursorChange={updateCursor}
+        connectedUsers={isTimeTraveling ? [] : connectedUsers}
+        onCursorChange={isTimeTraveling ? undefined : updateCursor}
+        readOnly={isTimeTraveling}
       />
     </div>
   )
@@ -109,6 +129,7 @@ function EditorPage() {
   const toastShownRef = useRef(false)
   const lastCodeRef = useRef('')
   const { user, session } = useAuth()
+  const [timeTravelContent, setTimeTravelContent] = useState<string | null>(null)
 
   // Set first file as active once loaded
   useEffect(() => {
@@ -203,6 +224,7 @@ function EditorPage() {
               language={activeFile.language}
               onCodeChange={handleCodeChange}
               onUsersChange={setConnectedUsers}
+              timeTravelContent={timeTravelContent}
             />
           ) : (
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.2)', fontFamily: 'monospace', fontSize: '13px' }}>
@@ -210,6 +232,17 @@ function EditorPage() {
             </div>
           )}
         </div>
+
+        {activeFileId && (
+          <TimeTravel
+            fileId={activeFileId}
+            onPreview={setTimeTravelContent}
+            onRestore={(content) => {
+              lastCodeRef.current = content
+              setTimeTravelContent(null)
+            }}
+          />
+        )}
 
         <div style={{
           background: 'rgba(0,0,0,0.45)',

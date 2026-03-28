@@ -14,6 +14,7 @@
 * [x] TASK 1.5.b — AIBlock.tsx: floating AI panel, chat UI, POST /api/ai
 * [x] TASK 2.1.b — DashboardPage.tsx: project grid, create new project form, sign out
 * [x] TASK 2.3 — Sidebar: inline new file form with "+" button, guesses language from extension
+* [x] TASK 2.4 — TimeTravel.tsx: slider over useFileHistory snapshots, read-only Monaco overlay, Restore + Exit buttons
 
 ## ❌ Erori Întâlnite și Încercări Eșuate
 *(Când primești o eroare, documentează abordarea greșită aici pentru a nu o repeta)*

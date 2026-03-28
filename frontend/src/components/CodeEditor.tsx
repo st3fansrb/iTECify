@@ -13,11 +13,12 @@ interface CodeEditorProps {
   onEditorMount?: (editor: monaco.editor.IStandaloneCodeEditor) => void
   connectedUsers?: ConnectedUser[]
   onCursorChange?: (line: number | null) => void
+  readOnly?: boolean
 }
 
 const CURSOR_COLORS = ['#f472b6', '#818cf8', '#34d399', '#fb923c', '#38bdf8']
 
-export default function CodeEditor({ language, value, onChange, onEditorMount, connectedUsers = [], onCursorChange }: CodeEditorProps) {
+export default function CodeEditor({ language, value, onChange, onEditorMount, connectedUsers = [], onCursorChange, readOnly = false }: CodeEditorProps) {
   const decorationsRef = { current: [] as string[] }
 
   const handleMount: OnMount = (editor, monacoInstance) => {
@@ -63,6 +64,7 @@ export default function CodeEditor({ language, value, onChange, onEditorMount, c
           tabSize: 2,
           fontFamily: 'JetBrains Mono, Fira Code, monospace',
           padding: { top: 16 },
+          readOnly,
         }}
       />
 
