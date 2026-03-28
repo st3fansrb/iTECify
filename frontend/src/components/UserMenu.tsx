@@ -168,8 +168,12 @@ export default function UserMenu({ user, projectId, onSignOut }: UserMenuProps) 
                       <div style={{ display: 'flex', gap: '6px' }}>
                         <button
                           onClick={async () => {
-                            await accept(inv.id)
-                            window.location.href = '/editor'
+                            try {
+                              await accept(inv.id)
+                              window.location.href = '/editor'
+                            } catch (err) {
+                              alert('Accept failed: ' + (err instanceof Error ? err.message : String(err)))
+                            }
                           }}
                           style={{
                             flex: 1, padding: '4px 0', fontSize: '11px', fontWeight: 600,
