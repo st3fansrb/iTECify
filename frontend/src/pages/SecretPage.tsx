@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import terminalBg from '../assets/terminal-bg.png'
 
 // ─── Command responses ────────────────────────────────────────────────────────
 
@@ -122,18 +121,12 @@ export default function SecretPage() {
       }}
       onClick={() => inputRef.current?.focus()}
     >
-      {/* Background image */}
-      <img
-        src={terminalBg}
-        alt=""
-        style={{
-          position: 'absolute', inset: 0,
-          width: '100%', height: '100%',
-          objectFit: 'cover',
-          pointerEvents: 'none',
-          zIndex: 0,
-        }}
-      />
+      {/* Background */}
+      <div style={{
+        position: 'absolute', inset: 0,
+        background: 'linear-gradient(135deg, #0a0010 0%, #0f0c29 50%, #050010 100%)',
+        pointerEvents: 'none', zIndex: 0,
+      }} />
 
       {/* Dark overlay for readability */}
       <div style={{
