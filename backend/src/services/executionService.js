@@ -34,6 +34,21 @@ const DOCKER_RUNNERS = {
     file: 'Main.java',
     cmd: ['sh', '-c', 'javac /sandbox/Main.java -d /tmp && cat /sandbox/stdin.txt | java -cp /tmp Main'],
   },
+  c: {
+    image: 'gcc:14',
+    file: 'code.c',
+    cmd: ['sh', '-c', 'gcc /sandbox/code.c -o /tmp/out -lm 2>&1 && cat /sandbox/stdin.txt | /tmp/out'],
+  },
+  cpp: {
+    image: 'gcc:14',
+    file: 'code.cpp',
+    cmd: ['sh', '-c', 'g++ /sandbox/code.cpp -o /tmp/out -lm 2>&1 && cat /sandbox/stdin.txt | /tmp/out'],
+  },
+  typescript: {
+    image: 'node:18-alpine',
+    file: 'code.ts',
+    cmd: ['sh', '-c', 'npx --yes --quiet ts-node --skip-project /sandbox/code.ts < /sandbox/stdin.txt'],
+  },
 };
 
 // Fallback runners (child_process, no Docker needed)
