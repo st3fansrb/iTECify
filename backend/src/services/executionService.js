@@ -138,7 +138,9 @@ async function executeWithFallback(language, code, stdin = '') {
     let stderrData = '';
     let finished = false;
 
-    const proc = spawn(runner.cmd, runner.args(tmpFile));
+    const proc = spawn(runner.cmd, runner.args(tmpFile), {
+      env: { ...process.env, PYTHONUTF8: '1', PYTHONIOENCODING: 'utf-8' },
+    });
 
     const finish = (error = null) => {
       if (finished) return;

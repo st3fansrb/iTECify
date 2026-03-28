@@ -221,7 +221,9 @@ app.post('/api/execute/stream', executeLimiter, requireAuth, async (req, res) =>
       fs.writeFileSync(tmpFile, code, 'utf8');
       cleanupFns.push(() => { try { fs.unlinkSync(tmpFile); } catch (_) {} });
 
-      const proc = spawn(runner.cmd, [tmpFile]);
+      const proc = spawn(runner.cmd, [tmpFile], {
+        env: { ...process.env, PYTHONUTF8: '1', PYTHONIOENCODING: 'utf-8' },
+      });
 
       // Write stdin and close it (guard against null stdin on spawn failure)
       if (proc.stdin) {

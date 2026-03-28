@@ -186,7 +186,7 @@ function EditorPage() {
     setOutput('')
 
     try {
-      const res = await fetch('http://localhost:3001/api/execute/stream', {
+      const res = await fetch('/api/execute/stream', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -196,8 +196,15 @@ function EditorPage() {
       })
 
       if (!res.ok || !res.body) {
-        const err = await res.json().catch(() => ({ error: 'Unknown error' }))
-        setOutput(`ERROR: ${err.error}`)
+        const text = await res.text().catch(() => '')
+        let errMsg = `HTTP ${res.status}`
+        try {
+          const json = JSON.parse(text)
+          errMsg = json.error || errMsg
+        } catch {
+          errMsg = text || errMsg
+        }
+        setOutput(`ERROR: ${errMsg}`)
         return
       }
 
@@ -243,8 +250,9 @@ function EditorPage() {
         setOutput('(no output)')
       }
 
-    } catch {
-      setOutput('ERROR: Could not reach backend (http://localhost:3001)')
+    } catch (err) {
+      console.error('[handleRun] error:', err)
+      setOutput('ERROR: ' + (err instanceof Error ? err.message : String(err)))
     } finally {
       setIsLoading(false)
     }
@@ -376,7 +384,7 @@ function EditorPage() {
           <TerminalOutput
             output={output}
             isLoading={isLoading}
-            onRun={handleRun}
+            onRun={() => handleRun(false)}
             onClear={() => { setOutput(''); setIsBlocked(false) }}
             collapsed={terminalCollapsed}
             onToggleCollapse={() => setTerminalCollapsed(c => !c)}
