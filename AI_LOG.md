@@ -31,6 +31,11 @@
 * [x] **Plan B Execution Engine:** `POST /api/execute` funcțional via `child_process` (suportă JavaScript și Python). Fișiere: `src/services/executionService.js`, `src/index.js`, `backend/temp/`.
 * [x] **[2026-03-27] Membru 3:** Execuția codului prin `child_process` finalizată și verificată (Plan B).
 * [x] **[2026-03-27] Membru 3:** Upgrade la Docker real — `dockerode` instalat, `executionService.js` rescris. Containere izolate: fără rețea, 50MB RAM, read-only mount. Testat: Python OK, JavaScript OK, timeout (buclă infinită) OK.
+* [x] **[2026-03-28] Frontend — Features section în HomePage:**
+  - 3 carduri Linear.app style: `feature1.png`/`feature2.png`/`feature3.png`, label `FIG 0.X` top-left, fade gradient bottom, titlu + descriere jos.
+  - Scroll animations via Intersection Observer API (fără librării externe): fade-in + slide-up (translateY 40px→0, opacity 0→1), delay 0/150/300ms per card.
+  - Root div schimbat din `height:100vh, overflow:hidden` la `minHeight:100vh` + canvas fixat (`position:fixed`) pentru a permite scroll.
+  - Hover effect: border roz subtil + glow `box-shadow`.
 * [x] **[2026-03-28] Frontend — Asset updates (KonamiExplosion + SecretPage):**
   - **KonamiExplosion**: înlocuit logo cu `cat-access.png` (200×200, border-radius 16px, glow roz/mov, animație float 3s). Animație `cat-float` adăugată în `<style>`.
   - **SecretPage**: `terminal-bg.png` ca fundal full-cover + overlay `rgba(0,0,0,0.72)` pentru lizibilitate + vignette cu `box-shadow: inset`. `zIndex` panel ridicat la 10.
