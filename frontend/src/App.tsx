@@ -56,12 +56,12 @@ const ORBS = (
   </>
 )
 
-
 // ── Inner component that holds realtime state for the active file ──────────────
 function RealtimeEditor({
-  fileId, language, onCodeChange, onUsersChange, timeTravelContent,
-}: { fileId: string; language: string; onCodeChange: (code: string) => void; onUsersChange: (users: ConnectedUser[]) => void; timeTravelContent: string | null }) {
+  fileId, projectId, language, onCodeChange, onUsersChange, timeTravelContent, currentUserId,
+}: { fileId: string; projectId?: string; language: string; onCodeChange: (code: string) => void; onUsersChange: (users: ConnectedUser[]) => void; timeTravelContent: string | null; currentUserId?: string | null }) {
   const { code, updateCode, updateCursor, loading, isSaving, connectedUsers } = useRealtimeEditor({
+    projectId,
     fileId,
     initialContent: '',
   })
@@ -115,6 +115,7 @@ function RealtimeEditor({
         connectedUsers={isTimeTraveling ? [] : connectedUsers}
         onCursorChange={isTimeTraveling ? undefined : updateCursor}
         readOnly={isTimeTraveling}
+        currentUserId={currentUserId}
       />
     </div>
   )
@@ -358,10 +359,12 @@ function EditorPage() {
             <RealtimeEditor
               key={activeFileId}
               fileId={activeFileId}
+              projectId={projectId || undefined}
               language={activeFile.language}
               onCodeChange={handleCodeChange}
               onUsersChange={setConnectedUsers}
               timeTravelContent={timeTravelContent}
+              currentUserId={user?.id}
             />
           ) : (
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.2)', fontFamily: 'monospace', fontSize: '13px' }}>
