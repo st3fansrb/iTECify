@@ -101,6 +101,7 @@ const DOCKER_RUNNERS = {
   rust:       { image: 'rust:alpine',     file: 'code.rs', cmd: ['sh', '-c', 'rustc /sandbox/code.rs -o /tmp/out 2>&1 && /tmp/out'] },
   go:         { image: 'golang:alpine',   file: 'code.go', cmd: ['go', 'run', '/sandbox/code.go'] },
   java:       { image: 'openjdk:17-alpine', file: 'Main.java', cmd: ['sh', '-c', 'javac /sandbox/Main.java -d /tmp && java -cp /tmp Main'] },
+  c:          { image: 'gcc:latest',        file: 'code.c',   cmd: ['sh', '-c', 'gcc /sandbox/code.c -o /tmp/out -lm 2>&1 && cat /sandbox/stdin.txt | /tmp/out'] },
 };
 
 const TEMP_DIR = path.join(__dirname, '../../temp');
@@ -169,8 +170,13 @@ app.post('/api/execute/stream', executeLimiter, requireAuth, async (req, res) =>
         Cmd: runner.cmd,
         HostConfig: {
           Binds: [`${execDir}:/sandbox:ro`],
+          Tmpfs: { '/tmp': 'size=64m,exec' },
           NetworkMode: 'none',
           Memory: 50 * 1024 * 1024,
+          MemorySwap: 50 * 1024 * 1024,
+          NanoCpus: 500000000,
+          PidsLimit: 50,
+          OomKillDisable: false,
           AutoRemove: false,
         },
       });
@@ -317,6 +323,14 @@ app.post('/api/invite', inviteLimiter, requireAuth, async (req, res) => {
     return res.status(500).json({ error: err.message });
   }
 });
+
+// ─── Serve Frontend (production) ──────────────────────────────────────────────
+
+const FRONTEND_DIST = path.join(__dirname, '../../frontend/dist');
+if (fs.existsSync(FRONTEND_DIST)) {
+  app.use(express.static(FRONTEND_DIST));
+  app.get('*path', (_req, res) => res.sendFile(path.join(FRONTEND_DIST, 'index.html')));
+}
 
 // ─── Start ─────────────────────────────────────────────────────────────────────
 

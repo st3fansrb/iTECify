@@ -34,6 +34,11 @@ const DOCKER_RUNNERS = {
     file: 'Main.java',
     cmd: ['sh', '-c', 'javac /sandbox/Main.java -d /tmp && cat /sandbox/stdin.txt | java -cp /tmp Main'],
   },
+  c: {
+    image: 'gcc:latest',
+    file: 'code.c',
+    cmd: ['sh', '-c', 'gcc /sandbox/code.c -o /tmp/out -lm 2>&1 && cat /sandbox/stdin.txt | /tmp/out'],
+  },
 };
 
 // Fallback runners (child_process, no Docker needed)

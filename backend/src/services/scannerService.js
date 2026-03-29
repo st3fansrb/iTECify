@@ -34,6 +34,15 @@ const DANGEROUS_PATTERNS = {
     { pattern: /\bnew\s+Socket\s*\(/, severity: 'high', message: 'Network socket detected' },
     { pattern: /\bReflection|\.forName\s*\(/, severity: 'medium', message: 'Reflection API detected' },
   ],
+  c: [
+    { pattern: /#include\s*<stdlib\.h>[\s\S]*\bsystem\s*\(/, severity: 'high', message: 'system() call detected — command execution risk' },
+    { pattern: /\bsystem\s*\(/, severity: 'high', message: 'system() call detected — command execution risk' },
+    { pattern: /\bpopen\s*\(/, severity: 'high', message: 'popen() detected — command execution risk' },
+    { pattern: /\bexecv[pe]?\s*\(/, severity: 'high', message: 'exec() family detected — process execution risk' },
+    { pattern: /\bfork\s*\(/, severity: 'medium', message: 'fork() detected — process creation' },
+    { pattern: /\bsocket\s*\(/, severity: 'high', message: 'socket() detected — network access attempt' },
+    { pattern: /\bgets\s*\(/, severity: 'medium', message: 'gets() detected — buffer overflow risk' },
+  ],
 };
 
 /**
