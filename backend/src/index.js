@@ -15,7 +15,16 @@ const PORT = process.env.PORT || 3001;
 
 // ─── Middleware ────────────────────────────────────────────────────────────────
 
-app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173' }));
+const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:5173')
+  .split(',').map(o => o.trim()).filter(Boolean);
+app.use(cors({
+  origin: (origin, cb) => {
+    if (!origin) return cb(null, true);
+    if (allowedOrigins.includes(origin)) return cb(null, true);
+    if (/\.ngrok(-free)?\.(app|dev)$/.test(origin)) return cb(null, true);
+    cb(new Error(`CORS: origin ${origin} not allowed`));
+  },
+}));
 app.use(express.json());
 
 // ─── Rate Limiters ─────────────────────────────────────────────────────────────
