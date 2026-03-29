@@ -160,7 +160,7 @@ function RealtimeEditor({
 
 function EditorPage({ externalProjectId, onProjectName }: { externalProjectId?: string; onProjectName?: (name: string) => void }) {
   const navigate = useNavigate()
-  const { files, loading: filesLoading, addFile, renameFile, deleteFile, restoreDefaults, projectId, projectName } = useProjectFiles(externalProjectId)
+  const { files, loading: filesLoading, addFile, renameFile, deleteFile: _deleteFile, restoreDefaults, projectId, projectName } = useProjectFiles(externalProjectId)
   const { outputs, broadcast, clearOutputs } = useSharedTerminal(projectId)
   const { personalOutputs, addPersonalEntry, clearPersonalOutputs } = usePersonalTerminal()
   const members = useProjectMembers(projectId)

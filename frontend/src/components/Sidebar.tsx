@@ -527,7 +527,7 @@ const handleFileContextMenu = (file: FileItem, e: React.MouseEvent) => {
               {files.map((file) => {
                 const isActive = activeFile === (file.id ?? file.name)
                 const key = file.id ?? file.name
-                const isRenaming = renaming?.id === file.id
+
                 return (
                   <FileRow
                     key={key}
@@ -563,7 +563,7 @@ const handleFileContextMenu = (file: FileItem, e: React.MouseEvent) => {
               >
                 <button
                   onClick={() => {
-                    setRenaming({ id: contextMenu.fileId, name: contextMenu.fileName })
+                    setRenaming({ id: contextMenu.file.id ?? '', name: contextMenu.file.name })
                     setContextMenu(null)
                   }}
                   style={{
@@ -582,7 +582,7 @@ const handleFileContextMenu = (file: FileItem, e: React.MouseEvent) => {
                 <div style={{ height: '1px', background: 'rgba(255,255,255,0.07)', margin: '2px 6px' }} />
                 <button
                   onClick={() => {
-                    onDeleteFile?.(contextMenu.fileId)
+                    onDeleteFile?.(contextMenu.file.id ?? '')
                     setContextMenu(null)
                   }}
                   style={{
