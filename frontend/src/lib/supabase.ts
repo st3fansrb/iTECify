@@ -96,6 +96,12 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 const supabase = createClient<Database>(
   supabaseUrl ?? 'https://placeholder.supabase.co',
-  supabaseAnonKey ?? 'placeholder'
+  supabaseAnonKey ?? 'placeholder',
+  {
+    realtime: {
+      params: { eventsPerSecond: 10 },
+      timeout: 20000,
+    },
+  }
 )
 export default supabase

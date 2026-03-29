@@ -73,6 +73,7 @@ export function useProjectFiles(externalProjectId?: string): UseProjectFilesRetu
     const setup = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser()
+        console.log('[useProjectFiles] user:', user?.id, user?.email)
         if (!user) throw new Error('Not authenticated')
 
         let projectId: string
@@ -155,6 +156,7 @@ export function useProjectFiles(externalProjectId?: string): UseProjectFilesRetu
           .eq('project_id', projectId)
           .order('name')
 
+        console.log('[useProjectFiles] files lookup → data:', existingFiles, 'error:', filesErr)
         if (filesErr) throw new Error(`Failed to fetch files: ${filesErr.message}`)
 
         if (existingFiles && existingFiles.length > 0) {

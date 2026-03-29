@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import supabase from '../lib/supabase'
 import type { Project } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
+import dashBgSrc from '../assets/dashboard-bg.png'
+
 // Palette of vivid icons + colors for project cards
 const PROJECT_ICONS = ['🚀', '⚡', '🔥', '🌊', '🎯', '💎', '🧬', '🛸', '🎪', '🌈', '🔮', '🎭']
 const PROJECT_COLORS = [
@@ -15,6 +17,7 @@ const PROJECT_COLORS = [
   ['#c4b5fd', '#7c3aed'],
   ['#86efac', '#22c55e'],
 ]
+
 
 function getProjectAccent(id: string): [string, string, string] {
   // deterministic pick based on id chars
@@ -86,6 +89,19 @@ export default function DashboardPage() {
       fontFamily: 'system-ui, sans-serif',
       overflowX: 'hidden',
     }}>
+      {/* Dashboard background image — rotatie lenta + plutire, colorata mov/roz */}
+      <img
+        src={dashBgSrc}
+        alt=""
+        style={{
+          position: 'fixed', top: '50%', left: '50%',
+          width: '700px', height: '700px',
+          opacity: 0.15, zIndex: 0, pointerEvents: 'none',
+          filter: 'hue-rotate(260deg) saturate(3) brightness(1.5)',
+          animation: 'dash-bg-spin 20s linear infinite, dash-bg-float 6s ease-in-out infinite',
+        }}
+      />
+
       {/* Glow orbs */}
       <div style={{ position: 'fixed', top: '8%', left: '10%', width: 520, height: 520, borderRadius: '50%', background: 'radial-gradient(circle, rgba(236,72,153,0.15) 0%, transparent 70%)', pointerEvents: 'none', zIndex: 0 }} />
       <div style={{ position: 'fixed', bottom: '8%', right: '8%', width: 620, height: 620, borderRadius: '50%', background: 'radial-gradient(circle, rgba(139,92,246,0.18) 0%, transparent 70%)', pointerEvents: 'none', zIndex: 0 }} />

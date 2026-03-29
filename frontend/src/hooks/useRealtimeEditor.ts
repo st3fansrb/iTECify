@@ -1,19 +1,26 @@
 /**
- * useRealtimeEditor — syncs file content + broadcasts cursors in real time.
+ * useRealtimeEditor — syncs file content + broadcasts cursor presence.
  *
- * Cursor strategy: Broadcast (instant WebSocket, no throttle) instead of Presence.
- * Presence is kept only for join/leave (displayName, avatarColor).
- * This fixes the "cursor stuck at first position" bug caused by Presence throttling.
+ * Presence strategy: pure Broadcast channel with event 'cursor'.
+ * No Supabase Presence API (track/presenceState) — avoids CHANNEL_ERROR
+ * caused by WebSocket issues with postgres_changes + presence on same channel.
+ *
+ * File sync: postgres_changes on 'files' table (requires Realtime enabled).
+ * Cursors: channel.send({ type: 'broadcast', event: 'cursor', payload })
+ *          channel.on('broadcast', { event: 'cursor' }, handler)
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import supabase from '../lib/supabase'
 
-const DEBOUNCE_MS = 150
+const DEBOUNCE_MS      = 500
+const HEARTBEAT_MS     = 3000
+const STALE_TIMEOUT_MS = 9000
 
 export interface UseRealtimeEditorOptions {
   projectId?: string
   fileId: string
+  fileName?: string
   initialContent: string
 }
 
@@ -40,41 +47,41 @@ export interface UseRealtimeEditorReturn {
   remoteCursors: ConnectedUser[]
 }
 
-type PresencePayload = {
-  userId: string
-  displayName: string | null
-  avatarColor: string | null
-  activeFileId: string | null
-}
-
-type CursorBroadcast = {
-  userId: string
-  cursor: CursorPosition | null
-  activeFileId: string
-}
+type CursorPayload = ConnectedUser & { action: 'update' | 'leave' }
+type UserEntry     = ConnectedUser & { _lastSeen: number }
+type CodePayload   = { userId: string; fileId: string; content: string }
 
 export function useRealtimeEditor({
   projectId,
   fileId,
+  fileName,
   initialContent,
 }: UseRealtimeEditorOptions): UseRealtimeEditorReturn {
-  const [code, setCode] = useState(initialContent)
-  const [loading, setLoading] = useState(true)
-  const [isSaving, setIsSaving] = useState(false)
+  const [code, setCode]                     = useState(initialContent)
+  const [loading, setLoading]               = useState(true)
+  const [isSaving, setIsSaving]             = useState(false)
   const [connectedUsers, setConnectedUsers] = useState<ConnectedUser[]>([])
 
   const currentUserIdRef = useRef<string | null>(null)
-  const presenceRef = useRef<Omit<PresencePayload, 'userId'>>({
+  const myDataRef        = useRef<Omit<CursorPayload, 'userId' | 'action'>>({
     displayName: null,
     avatarColor: null,
+    cursor: null,
     activeFileId: fileId,
   })
-  // Cursor positions received via Broadcast — keyed by userId
-  const cursorMapRef = useRef<Map<string, CursorPosition | null>>(new Map())
-  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
+  const debounceTimer  = useRef<ReturnType<typeof setTimeout>  | null>(null)
+  const heartbeatTimer = useRef<ReturnType<typeof setInterval> | null>(null)
+  const staleTimer     = useRef<ReturnType<typeof setInterval> | null>(null)
+  const channelRef     = useRef<ReturnType<typeof supabase.channel> | null>(null)
+  const usersMap       = useRef<Map<string, UserEntry>>(new Map())
 
-  // ── 1. Fetch latest content from DB ──────────────────────────────────────────
+  const flushUsers = useCallback(() => {
+    setConnectedUsers(
+      Array.from(usersMap.current.values()).map(({ _lastSeen: _, ...u }) => u)
+    )
+  }, [])
+
+  // ── 1. Fetch latest file content from DB ─────────────────────────────────────
   useEffect(() => {
     let cancelled = false
     setLoading(true)
@@ -93,126 +100,194 @@ export function useRealtimeEditor({
 
   // ── 2. Realtime channel ───────────────────────────────────────────────────────
   useEffect(() => {
-    let cancelled = false
-    const channelName = projectId ? `project-${projectId}` : `file-${fileId}`
-    const channel = supabase.channel(channelName, {
-      config: { broadcast: { self: false }, presence: { key: '' } },
-    })
-    channelRef.current = channel
+    let channelToClean: ReturnType<typeof supabase.channel> | null = null
 
-    // ── File content changes (postgres) ──
-    channel.on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'files', ...(projectId ? { filter: `project_id=eq.${projectId}` } : { filter: `id=eq.${fileId}` }) },
-      (payload) => {
-        const updated = payload.new as { id: string; content: string; updated_by: string | null }
-        if (updated.id !== fileId) return
-        if (updated.updated_by === currentUserIdRef.current) return
-        setCode(updated.content ?? '')
-      }
-    )
+    const setup = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      const uid = user?.id ?? null
+      currentUserIdRef.current = uid
+      console.log('[useRealtimeEditor] init fileId:', fileId, 'uid:', uid)
 
-    // ── Cursor positions via Broadcast (instant, no throttle) ──
-    channel.on('broadcast', { event: 'cursor' }, ({ payload }: { payload: CursorBroadcast }) => {
-      if (cancelled || payload.userId === currentUserIdRef.current) return
-      cursorMapRef.current.set(payload.userId, payload.cursor)
-      // Merge cursor into connectedUsers state
-      setConnectedUsers(prev => prev.map(u =>
-        u.userId === payload.userId ? { ...u, cursor: payload.cursor, activeFileId: payload.activeFileId } : u
-      ))
-    })
-
-    // ── Presence: join/leave only (displayName, avatarColor) ──
-    channel.on('presence', { event: 'sync' }, () => {
-      if (cancelled) return
-      const uid = currentUserIdRef.current
-      const state = channel.presenceState<PresencePayload>()
-      const seen = new Set<string>()
-      const users: ConnectedUser[] = Object.values(state)
-        .flat()
-        .filter((p) => {
-          if (!p.userId || p.userId === uid || seen.has(p.userId)) return false
-          seen.add(p.userId)
-          return true
-        })
-        .map((p) => ({
-          userId: p.userId,
-          displayName: p.displayName ?? null,
-          avatarColor: p.avatarColor ?? null,
-          // Merge cursor from broadcast map if available
-          cursor: cursorMapRef.current.get(p.userId) ?? null,
-          activeFileId: p.activeFileId ?? null,
-        }))
-      setConnectedUsers(users)
-    })
-
-    channel.subscribe(async (status) => {
-      if (cancelled) return
-      if (status === 'SUBSCRIBED') {
-        const { data: { user } } = await supabase.auth.getUser()
-        const uid = user?.id ?? null
-        currentUserIdRef.current = uid
-        if (uid) {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('display_name, avatar_color')
-            .eq('id', uid)
-            .maybeSingle()
-          if (profile) {
-            presenceRef.current.displayName = profile.display_name
-            presenceRef.current.avatarColor = profile.avatar_color
-          }
-          await channel.track({ userId: uid, ...presenceRef.current, activeFileId: fileId })
+      // Fetch display name + avatar color for presence payload
+      if (uid) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('display_name, avatar_color')
+          .eq('id', uid)
+          .maybeSingle()
+        if (profile) {
+          myDataRef.current.displayName = profile.display_name
+          myDataRef.current.avatarColor = profile.avatar_color
         }
       }
-      if (status === 'CHANNEL_ERROR' && !cancelled) {
-        setTimeout(() => void supabase.removeChannel(channel), 2000)
-      }
-    })
+
+      const channelName = projectId ? `project-${projectId}` : `file-${fileName ?? fileId}`
+
+      // Pure broadcast channel — no Presence API, no postgres_changes config issues
+      const channel = supabase.channel(channelName, {
+        config: { broadcast: { self: false } },
+      })
+      channelToClean    = channel
+      channelRef.current = channel
+
+      // ── All listeners BEFORE .subscribe() ───────────────────────────────────
+
+      // 1. postgres_changes — file content sync (needs Realtime enabled on table)
+      channel.on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'files',
+          ...(projectId
+            ? { filter: `project_id=eq.${projectId}` }
+            : { filter: `id=eq.${fileId}` }),
+        },
+        (payload) => {
+          const updated = payload.new as { id: string; content: string; updated_by: string | null }
+          if (updated.id !== fileId) return
+          if (updated.updated_by === currentUserIdRef.current) return
+          setCode(updated.content ?? '')
+        }
+      )
+
+      // 2. broadcast 'code' — instant code sync (fallback when postgres_changes is unavailable)
+      channel.on(
+        'broadcast',
+        { event: 'code' },
+        ({ payload }: { payload: CodePayload }) => {
+          if (!payload?.userId || payload.userId === uid) return
+          if (payload.fileId !== fileId) return
+          setCode(payload.content)
+        }
+      )
+
+      // 3. broadcast 'cursor' — remote cursor / presence updates
+      channel.on(
+        'broadcast',
+        { event: 'cursor' },
+        ({ payload }: { payload: CursorPayload }) => {
+          if (!payload?.userId || payload.userId === uid) return
+          console.log('[useRealtimeEditor] cursor broadcast:', payload)
+
+          if (payload.action === 'leave') {
+            usersMap.current.delete(payload.userId)
+          } else {
+            usersMap.current.set(payload.userId, {
+              userId:      payload.userId,
+              displayName: payload.displayName,
+              avatarColor: payload.avatarColor,
+              cursor:      payload.cursor,
+              activeFileId: payload.activeFileId,
+              _lastSeen:   Date.now(),
+            })
+          }
+          flushUsers()
+        }
+      )
+
+      // 4. subscribe — only AFTER all listeners registered
+      channel.subscribe((status) => {
+        console.log('[useRealtimeEditor] channel status:', status)
+        if (status !== 'SUBSCRIBED' || !uid) return
+
+        console.log('[useRealtimeEditor] broadcasting join')
+
+        // Announce presence to room
+        void channel.send({
+          type: 'broadcast',
+          event: 'cursor',
+          payload: { ...myDataRef.current, userId: uid, activeFileId: fileId, action: 'update' } satisfies CursorPayload,
+        })
+
+        // Heartbeat so late-joiners discover us
+        heartbeatTimer.current = setInterval(() => {
+          void channel.send({
+            type: 'broadcast',
+            event: 'cursor',
+            payload: { ...myDataRef.current, userId: uid, activeFileId: fileId, action: 'update' } satisfies CursorPayload,
+          })
+        }, HEARTBEAT_MS)
+
+        // Purge users with no heartbeat
+        staleTimer.current = setInterval(() => {
+          const now = Date.now()
+          let changed = false
+          for (const [key, entry] of usersMap.current.entries()) {
+            if (now - entry._lastSeen > STALE_TIMEOUT_MS) {
+              usersMap.current.delete(key)
+              changed = true
+            }
+          }
+          if (changed) flushUsers()
+        }, HEARTBEAT_MS)
+      })
+    }
+
+    void setup()
 
     return () => {
-      cancelled = true
-      if (debounceTimer.current) clearTimeout(debounceTimer.current)
-      void supabase.removeChannel(channel)
+      const channel = channelRef.current
+      const uid     = currentUserIdRef.current
+      if (channel && uid) {
+        void channel.send({
+          type: 'broadcast',
+          event: 'cursor',
+          payload: { ...myDataRef.current, userId: uid, activeFileId: fileId, action: 'leave' } satisfies CursorPayload,
+        })
+      }
+      if (debounceTimer.current)  clearTimeout(debounceTimer.current)
+      if (heartbeatTimer.current) clearInterval(heartbeatTimer.current)
+      if (staleTimer.current)     clearInterval(staleTimer.current)
+      if (channelToClean)         void supabase.removeChannel(channelToClean)
       channelRef.current = null
+      usersMap.current.clear()
     }
-  }, [projectId, fileId])
+  }, [projectId, fileId, fileName, flushUsers])
 
-  // ── 3. updateCursor — via Broadcast (instant) ────────────────────────────────
+  // ── 3. updateCursor — broadcast cursor on every position change ───────────────
   const updateCursor = useCallback((cursor: CursorPosition | null) => {
     const channel = channelRef.current
-    const uid = currentUserIdRef.current
+    const uid     = currentUserIdRef.current
     if (!channel || !uid) return
+    myDataRef.current.cursor = cursor
     void channel.send({
       type: 'broadcast',
       event: 'cursor',
-      payload: { userId: uid, cursor, activeFileId: fileId } satisfies CursorBroadcast,
+      payload: { ...myDataRef.current, userId: uid, activeFileId: fileId, action: 'update' } satisfies CursorPayload,
     })
   }, [fileId])
 
-  // ── 4. updateCode — debounced DB write ───────────────────────────────────────
-  const updateCode = useCallback(
-    (newContent: string) => {
-      setCode(newContent)
-      setIsSaving(true)
-      if (debounceTimer.current) clearTimeout(debounceTimer.current)
-      debounceTimer.current = setTimeout(() => {
-        void supabase
-          .from('files')
-          .update({
-            content: newContent,
-            updated_by: currentUserIdRef.current,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', fileId)
-          .then(({ error }) => {
-            setIsSaving(false)
-            if (error) console.error('[useRealtimeEditor] DB update failed:', error)
-          })
-      }, DEBOUNCE_MS)
-    },
-    [fileId]
-  )
+  // ── 4. updateCode — debounced DB write + instant broadcast on every keystroke ─
+  const updateCode = useCallback((newContent: string) => {
+    setCode(newContent)
+    setIsSaving(true)
+    // Broadcast immediately so remote users see changes in real time
+    const channel = channelRef.current
+    const uid     = currentUserIdRef.current
+    if (channel && uid) {
+      void channel.send({
+        type: 'broadcast',
+        event: 'code',
+        payload: { userId: uid, fileId, content: newContent } satisfies CodePayload,
+      })
+    }
+    if (debounceTimer.current) clearTimeout(debounceTimer.current)
+    debounceTimer.current = setTimeout(() => {
+      void supabase
+        .from('files')
+        .update({
+          content:    newContent,
+          updated_by: currentUserIdRef.current,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', fileId)
+        .then(({ error }) => {
+          setIsSaving(false)
+          if (error) console.error('[useRealtimeEditor] DB write failed:', error)
+        })
+    }, DEBOUNCE_MS)
+  }, [fileId])
 
   return { code, updateCode, updateCursor, loading, isSaving, connectedUsers, remoteCursors: connectedUsers }
 }
