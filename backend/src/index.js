@@ -19,8 +19,9 @@ const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:5173')
   .split(',').map(o => o.trim()).filter(Boolean);
 app.use(cors({
   origin: (origin, cb) => {
-    // Allow server-to-server (no origin) or listed origins
-    if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+    if (!origin) return cb(null, true);
+    if (allowedOrigins.includes(origin)) return cb(null, true);
+    if (/\.ngrok(-free)?\.(app|dev)$/.test(origin)) return cb(null, true);
     cb(new Error(`CORS: origin ${origin} not allowed`));
   },
 }));

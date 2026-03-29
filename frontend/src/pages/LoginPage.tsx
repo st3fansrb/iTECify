@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { useState } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import logoSrc from '../assets/logo.png'
+import loginBgSrc from '../assets/terminal-bg.png'
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -35,6 +36,9 @@ export default function LoginPage() {
       position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center',
       background: 'linear-gradient(135deg, #1a0533 0%, #2d1b4e 30%, #1a1a2e 60%, #0f0c29 100%)',
     }}>
+      {/* Background image */}
+      <img src={loginBgSrc} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.08, zIndex: 0, pointerEvents: 'none' }} />
+
       {/* Glow orbs */}
       <div style={{ position: 'absolute', top: '20%', left: '20%', width: '400px', height: '400px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(249,168,212,0.12) 0%, transparent 70%)', pointerEvents: 'none' }} />
       <div style={{ position: 'absolute', bottom: '20%', right: '20%', width: '400px', height: '400px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(216,180,254,0.12) 0%, transparent 70%)', pointerEvents: 'none' }} />

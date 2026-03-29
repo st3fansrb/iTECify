@@ -62,8 +62,8 @@ const ORBS = (
 
 // ── Inner component that holds realtime state for the active file ──────────────
 function RealtimeEditor({
-  fileId, projectId, language, onCodeChange, onUsersChange, timeTravelContent, currentUserId, onEditorMount, onSaveSnapshotNow, onRunCode,
-}: { fileId: string; projectId?: string; language: string; onCodeChange: (code: string) => void; onUsersChange: (users: ConnectedUser[]) => void; timeTravelContent: string | null; currentUserId?: string | null; onEditorMount?: (editor: import('monaco-editor').editor.IStandaloneCodeEditor) => void; onSaveSnapshotNow?: (fn: () => Promise<void>) => void; onRunCode?: () => void }) {
+  fileId, fileName: _fileName, projectId, language, onCodeChange, onUsersChange, timeTravelContent, currentUserId, onEditorMount, onSaveSnapshotNow, onRunCode,
+}: { fileId: string; fileName?: string; projectId?: string; language: string; onCodeChange: (code: string) => void; onUsersChange: (users: ConnectedUser[]) => void; timeTravelContent: string | null; currentUserId?: string | null; onEditorMount?: (editor: import('monaco-editor').editor.IStandaloneCodeEditor) => void; onSaveSnapshotNow?: (fn: () => Promise<void>) => void; onRunCode?: () => void }) {
   const { code, updateCode, updateCursor, forceSave, loading, isSaving, connectedUsers } = useRealtimeEditor({
     projectId,
     fileId,
@@ -661,6 +661,7 @@ function EditorPage({ externalProjectId, onProjectName }: { externalProjectId?: 
                 key={activeFileId}
                 projectId={projectId || undefined}
                 fileId={activeFileId}
+                fileName={activeFile.name}
                 language={activeFile.language}
                 onCodeChange={handleCodeChange}
                 onUsersChange={setConnectedUsers}
