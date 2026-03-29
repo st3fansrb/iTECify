@@ -41,6 +41,7 @@ export interface UseRealtimeEditorReturn {
   code: string
   updateCode: (newContent: string) => void
   updateCursor: (cursor: CursorPosition | null) => void
+  forceSave: () => void
   loading: boolean
   isSaving: boolean
   connectedUsers: ConnectedUser[]
@@ -61,6 +62,7 @@ export function useRealtimeEditor({
   const [loading, setLoading]               = useState(true)
   const [isSaving, setIsSaving]             = useState(false)
   const [connectedUsers, setConnectedUsers] = useState<ConnectedUser[]>([])
+  const codeRef = useRef(initialContent)
 
   const currentUserIdRef = useRef<string | null>(null)
   const myDataRef        = useRef<Omit<CursorPayload, 'userId' | 'action'>>({
@@ -260,6 +262,7 @@ export function useRealtimeEditor({
 
   // ── 4. updateCode — debounced DB write + instant broadcast on every keystroke ─
   const updateCode = useCallback((newContent: string) => {
+    codeRef.current = newContent
     setCode(newContent)
     setIsSaving(true)
     // Broadcast immediately so remote users see changes in real time
@@ -289,5 +292,26 @@ export function useRealtimeEditor({
     }, DEBOUNCE_MS)
   }, [fileId])
 
-  return { code, updateCode, updateCursor, loading, isSaving, connectedUsers, remoteCursors: connectedUsers }
+  // ── 5. forceSave — flush debounce, write to DB immediately (Ctrl+S) ─────────
+  const forceSave = useCallback(() => {
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current)
+      debounceTimer.current = null
+    }
+    setIsSaving(true)
+    void supabase
+      .from('files')
+      .update({
+        content:    codeRef.current,
+        updated_by: currentUserIdRef.current,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', fileId)
+      .then(({ error }) => {
+        setIsSaving(false)
+        if (error) console.error('[useRealtimeEditor] forceSave failed:', error)
+      })
+  }, [fileId])
+
+  return { code, updateCode, updateCursor, forceSave, loading, isSaving, connectedUsers, remoteCursors: connectedUsers }
 }

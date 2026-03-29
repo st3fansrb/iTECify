@@ -62,9 +62,9 @@ const ORBS = (
 
 // ── Inner component that holds realtime state for the active file ──────────────
 function RealtimeEditor({
-  fileId, projectId, language, onCodeChange, onUsersChange, timeTravelContent, currentUserId, onEditorMount, onSaveSnapshotNow,
-}: { fileId: string; projectId?: string; language: string; onCodeChange: (code: string) => void; onUsersChange: (users: ConnectedUser[]) => void; timeTravelContent: string | null; currentUserId?: string | null; onEditorMount?: (editor: import('monaco-editor').editor.IStandaloneCodeEditor) => void; onSaveSnapshotNow?: (fn: () => Promise<void>) => void }) {
-  const { code, updateCode, updateCursor, loading, isSaving, connectedUsers } = useRealtimeEditor({
+  fileId, projectId, language, onCodeChange, onUsersChange, timeTravelContent, currentUserId, onEditorMount, onSaveSnapshotNow, onRunCode,
+}: { fileId: string; projectId?: string; language: string; onCodeChange: (code: string) => void; onUsersChange: (users: ConnectedUser[]) => void; timeTravelContent: string | null; currentUserId?: string | null; onEditorMount?: (editor: import('monaco-editor').editor.IStandaloneCodeEditor) => void; onSaveSnapshotNow?: (fn: () => Promise<void>) => void; onRunCode?: () => void }) {
+  const { code, updateCode, updateCursor, forceSave, loading, isSaving, connectedUsers } = useRealtimeEditor({
     projectId,
     fileId,
     initialContent: '',
@@ -153,6 +153,8 @@ function RealtimeEditor({
         readOnly={isTimeTraveling}
         currentUserId={currentUserId}
         onEditorMount={onEditorMount}
+        onRunCode={isTimeTraveling ? undefined : onRunCode}
+        onForceSave={isTimeTraveling ? undefined : forceSave}
       />
     </div>
   )
@@ -691,6 +693,7 @@ function EditorPage({ externalProjectId, onProjectName }: { externalProjectId?: 
                   })
                 }}
                 onSaveSnapshotNow={(fn) => { saveSnapshotNowRef.current = fn }}
+                onRunCode={() => handleRun(false)}
               />
             ) : (
               <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>

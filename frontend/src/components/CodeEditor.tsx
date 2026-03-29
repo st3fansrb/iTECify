@@ -14,6 +14,8 @@ interface CodeEditorProps {
   onCursorChange?: (cursor: CursorPosition | null) => void
   readOnly?: boolean
   currentUserId?: string | null
+  onRunCode?: () => void
+  onForceSave?: () => void
 }
 
 const FALLBACK_COLORS = ['#f472b6', '#818cf8', '#34d399', '#fb923c', '#38bdf8']
@@ -30,12 +32,18 @@ function hexToRgba(hex: string, alpha: number): string {
 export default function CodeEditor({
   language, value, onChange, onEditorMount,
   connectedUsers = [], onCursorChange, readOnly = false, currentUserId,
+  onRunCode, onForceSave,
 }: CodeEditorProps) {
   const editorRef = useRef<monacoType.editor.IStandaloneCodeEditor | null>(null)
   const monacoRef = useRef<typeof monacoType | null>(null)
   const decorationIdsRef = useRef<string[]>([])
   const widgetListRef = useRef<monacoType.editor.IContentWidget[]>([])
   const styleTagRef = useRef<HTMLStyleElement | null>(null)
+  // Stable refs so keybindings always call the latest version of the callbacks
+  const onRunCodeRef = useRef(onRunCode)
+  const onForceSaveRef = useRef(onForceSave)
+  useEffect(() => { onRunCodeRef.current = onRunCode }, [onRunCode])
+  useEffect(() => { onForceSaveRef.current = onForceSave }, [onForceSave])
 
   const handleMount: OnMount = (editor, monacoInstance) => {
     editorRef.current = editor
@@ -60,6 +68,17 @@ export default function CodeEditor({
         onCursorChange({ lineNumber: e.position.lineNumber, column: e.position.column })
       })
     }
+
+    // Ctrl+Enter → Run
+    editor.addCommand(
+      monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.Enter,
+      () => onRunCodeRef.current?.()
+    )
+    // Ctrl+S → Force save immediately
+    editor.addCommand(
+      monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.KeyS,
+      () => onForceSaveRef.current?.()
+    )
 
     onEditorMount?.(editor)
   }
