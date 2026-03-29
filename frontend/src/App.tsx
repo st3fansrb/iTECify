@@ -914,74 +914,87 @@ function MultiProjectEditorWrapper() {
       {/* Project tabs */}
       <div style={{
         display: 'flex',
-        alignItems: 'center',
-        background: 'rgba(5,2,20,0.7)',
-        backdropFilter: 'blur(10px)',
-        borderBottom: '1px solid rgba(139,92,246,0.2)',
-        padding: '4px 8px',
-        gap: '4px',
+        alignItems: 'stretch',
+        background: 'linear-gradient(180deg, rgba(10,6,28,0.95) 0%, rgba(8,5,22,0.9) 100%)',
+        backdropFilter: 'blur(16px)',
+        borderBottom: '1px solid rgba(139,92,246,0.18)',
         flexShrink: 0,
         overflowX: 'auto',
+        minHeight: '34px',
+        boxShadow: '0 1px 0 rgba(139,92,246,0.08), 0 4px 16px rgba(0,0,0,0.4)',
       }}>
+        {/* Branding pill */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: '6px',
+          padding: '0 14px',
+          borderRight: '1px solid rgba(255,255,255,0.06)',
+          flexShrink: 0,
+        }}>
+          <span style={{ fontSize: '11px', fontWeight: 700, fontFamily: 'monospace', letterSpacing: '0.08em', background: 'linear-gradient(90deg, #a78bfa, #f472b6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+            iTECify
+          </span>
+        </div>
+
         {openProjects.map((p, i) => {
           const isActive = activeIdx === i
           return (
-            <div key={`${p.id ?? 'demo'}-${i}`} style={{ position: 'relative', flexShrink: 0, display: 'flex', alignItems: 'center' }}>
+            <div
+              key={`${p.id ?? 'demo'}-${i}`}
+              style={{
+                position: 'relative', flexShrink: 0, display: 'flex', alignItems: 'stretch',
+                borderRight: '1px solid rgba(255,255,255,0.05)',
+                borderBottom: isActive ? '2px solid #a78bfa' : '2px solid transparent',
+                background: isActive ? 'rgba(139,92,246,0.1)' : 'transparent',
+                transition: 'background 0.15s',
+              }}
+              onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLDivElement).style.background = 'rgba(139,92,246,0.05)' }}
+              onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLDivElement).style.background = 'transparent' }}
+            >
               <button
                 onClick={() => setActiveIdx(i)}
                 style={{
-                  padding: '4px 26px 4px 10px',
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                  padding: '0 30px 0 12px',
                   fontSize: '11px',
-                  fontWeight: 600,
+                  fontWeight: isActive ? 600 : 400,
                   fontFamily: 'monospace',
                   letterSpacing: '0.03em',
-                  borderRadius: '8px',
                   cursor: 'pointer',
-                  transition: 'all 0.2s',
-                  background: isActive ? 'rgba(139,92,246,0.25)' : 'rgba(255,255,255,0.04)',
-                  border: isActive ? '1.5px solid #a78bfa' : '1.5px solid rgba(255,255,255,0.12)',
-                  color: isActive ? '#c4b5fd' : 'rgba(255,255,255,0.4)',
+                  background: 'transparent',
+                  border: 'none',
+                  color: isActive ? '#c4b5fd' : 'rgba(255,255,255,0.35)',
                   whiteSpace: 'nowrap',
-                }}
-                onMouseEnter={e => {
-                  if (!isActive) {
-                    e.currentTarget.style.background = 'rgba(139,92,246,0.12)'
-                    e.currentTarget.style.borderColor = 'rgba(167,139,250,0.4)'
-                    e.currentTarget.style.color = 'rgba(196,181,253,0.8)'
-                  }
-                }}
-                onMouseLeave={e => {
-                  if (!isActive) {
-                    e.currentTarget.style.background = 'rgba(255,255,255,0.04)'
-                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)'
-                    e.currentTarget.style.color = 'rgba(255,255,255,0.4)'
-                  }
+                  transition: 'color 0.15s',
                 }}
               >
-                📁 {p.name}
+                <span style={{ fontSize: '12px', opacity: isActive ? 1 : 0.5 }}>📁</span>
+                {p.name}
               </button>
               <button
                 onClick={e => closeProject(i, e)}
                 title="Close project"
                 style={{
                   position: 'absolute',
-                  right: '7px',
-                  width: '14px',
-                  height: '14px',
+                  right: '6px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  width: '16px',
+                  height: '16px',
                   background: 'transparent',
                   border: 'none',
-                  color: 'rgba(255,255,255,0.3)',
+                  color: isActive ? 'rgba(196,181,253,0.5)' : 'rgba(255,255,255,0.15)',
                   cursor: 'pointer',
-                  fontSize: '11px',
+                  fontSize: '13px',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   borderRadius: '3px',
                   padding: 0,
                   lineHeight: 1,
+                  transition: 'color 0.15s, background 0.15s',
                 }}
-                onMouseEnter={e => { e.currentTarget.style.color = '#c4b5fd'; e.currentTarget.style.background = 'rgba(139,92,246,0.25)' }}
-                onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.3)'; e.currentTarget.style.background = 'transparent' }}
+                onMouseEnter={e => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.background = 'rgba(139,92,246,0.3)' }}
+                onMouseLeave={e => { e.currentTarget.style.color = isActive ? 'rgba(196,181,253,0.5)' : 'rgba(255,255,255,0.15)'; e.currentTarget.style.background = 'transparent' }}
               >
                 ×
               </button>
