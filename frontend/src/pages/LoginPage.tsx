@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useState } from 'react'
 import { useAuth } from '../hooks/useAuth'
+import logoSrc from '../assets/logo.png'
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -55,7 +56,7 @@ export default function LoginPage() {
       }}>
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: '28px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <img src="/src/assets/logo.png" alt="logo" style={{ width: '56px', height: '56px', filter: 'invert(1) sepia(1) saturate(2) hue-rotate(280deg)', marginBottom: '12px' }} />
+          <img src={logoSrc} alt="logo" style={{ width: '56px', height: '56px', filter: 'invert(1) sepia(1) saturate(2) hue-rotate(280deg)', marginBottom: '12px' }} />
           <h1 style={{ fontSize: '24px', fontWeight: 700, background: 'linear-gradient(135deg, #ffffff, #f9a8d4)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
             {isLogin ? 'Welcome back' : 'Create account'}
           </h1>

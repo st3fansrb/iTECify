@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useEffect, useRef, useState } from 'react'
 import blobSrc from '../assets/blob.png'
+import logoSrc from '../assets/logo.png'
 import feature1 from '../assets/feature1.png'
 import feature2 from '../assets/feature2.png'
 import feature3 from '../assets/feature3.png'
@@ -149,7 +150,7 @@ export default function HomePage() {
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <img
-              src="/src/assets/logo.png"
+              src={logoSrc}
               alt="iTECify logo"
               onClick={handleLogoClick}
               style={{ width: '32px', height: '32px', filter: 'invert(1) sepia(1) saturate(2) hue-rotate(280deg)', cursor: 'pointer' }}
