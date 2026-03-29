@@ -158,7 +158,7 @@ function RealtimeEditor({
 
 function EditorPage({ externalProjectId, onProjectName }: { externalProjectId?: string; onProjectName?: (name: string) => void }) {
   const navigate = useNavigate()
-  const { files, loading: filesLoading, addFile, restoreDefaults, projectId, projectName } = useProjectFiles(externalProjectId)
+  const { files, loading: filesLoading, addFile, renameFile, deleteFile, restoreDefaults, projectId, projectName } = useProjectFiles(externalProjectId)
   const { outputs, broadcast, clearOutputs } = useSharedTerminal(projectId)
   const { personalOutputs, addPersonalEntry, clearPersonalOutputs } = usePersonalTerminal()
   const members = useProjectMembers(projectId)
@@ -412,6 +412,15 @@ function EditorPage({ externalProjectId, onProjectName }: { externalProjectId?: 
           onSelectFile={handleSelectFile}
           loading={filesLoading}
           onCreateFile={addFile}
+          onRenameFile={renameFile}
+          onDeleteFile={(id) => {
+            deleteFile(id)
+            setOpenFileIds(prev => {
+              const next = prev.filter(fid => fid !== id)
+              if (activeFileId === id) setActiveFileId(next[next.length - 1] ?? '')
+              return next
+            })
+          }}
           onRestoreDefaults={restoreDefaults}
           members={members}
           onlineUserIds={connectedUsers.map(u => u.userId)}
