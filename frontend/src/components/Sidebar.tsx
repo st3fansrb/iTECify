@@ -165,11 +165,9 @@ export default function Sidebar({ files, activeFile, onSelectFile, loading, onCr
   const [newName, setNewName] = useState('')
   const [switcherOpen, setSwitcherOpen] = useState(false)
   const [contextMenu, setContextMenu] = useState<{ file: FileItem; x: number; y: number } | null>(null)
+  const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const renameInputRef = useRef<HTMLInputElement>(null)
-
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; fileId: string; fileName: string } | null>(null)
-  const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null)
 
   useEffect(() => {
     if (!contextMenu) return
