@@ -194,6 +194,8 @@ const FRONTEND_DIST = path.join(__dirname, '../../frontend/dist');
 if (fs.existsSync(FRONTEND_DIST)) {
   app.use(express.static(FRONTEND_DIST));
   app.get('*path', (_req, res) => res.sendFile(path.join(FRONTEND_DIST, 'index.html')));
+} else {
+  console.warn('[iTECify] frontend/dist not found — skipping static serve');
 }
 
 // ─── Start ─────────────────────────────────────────────────────────────────────
