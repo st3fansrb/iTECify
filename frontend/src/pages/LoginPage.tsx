@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { useState } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import logoSrc from '../assets/logo.png'
-import loginBgSrc from '../assets/login.png'
+import loginBgSrc from '../assets/terminal-bg.png'
 
 export default function LoginPage() {
   const navigate = useNavigate()
