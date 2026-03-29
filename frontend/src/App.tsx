@@ -62,8 +62,8 @@ const ORBS = (
 
 // ── Inner component that holds realtime state for the active file ──────────────
 function RealtimeEditor({
-  fileId, projectId, language, onCodeChange, onUsersChange, timeTravelContent, currentUserId, onEditorMount, onSaveSnapshotNow,
-}: { fileId: string; projectId?: string; language: string; onCodeChange: (code: string) => void; onUsersChange: (users: ConnectedUser[]) => void; timeTravelContent: string | null; currentUserId?: string | null; onEditorMount?: (editor: import('monaco-editor').editor.IStandaloneCodeEditor) => void; onSaveSnapshotNow?: (fn: () => Promise<void>) => void }) {
+  fileId, fileName, projectId, language, onCodeChange, onUsersChange, timeTravelContent, currentUserId, onEditorMount, onSaveSnapshotNow,
+}: { fileId: string; fileName: string; projectId?: string; language: string; onCodeChange: (code: string) => void; onUsersChange: (users: ConnectedUser[]) => void; timeTravelContent: string | null; currentUserId?: string | null; onEditorMount?: (editor: import('monaco-editor').editor.IStandaloneCodeEditor) => void; onSaveSnapshotNow?: (fn: () => Promise<void>) => void }) {
   const { code, updateCode, updateCursor, loading, isSaving, connectedUsers } = useRealtimeEditor({
     projectId,
     fileId,

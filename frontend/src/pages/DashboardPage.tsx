@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import supabase from '../lib/supabase'
 import type { Project } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
-import dashBgSrc from '../assets/dashboard-bg.png'
+import dashBgSrc from '../assets/blob.png'
 
 // Palette of vivid icons + colors for project cards
 const PROJECT_ICONS = ['🚀', '⚡', '🔥', '🌊', '🎯', '💎', '🧬', '🛸', '🎪', '🌈', '🔮', '🎭']
