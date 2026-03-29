@@ -43,7 +43,13 @@
       "Bash(grep -r \"yjs\\\\|crdt\\\\|Y\\\\.Doc\\\\|awareness\" /d/iTECify/frontend/src --include=*.ts --include=*.tsx)",
       "Bash(grep -rn \"docker\\\\|Docker\\\\|DOCKER\" /d/iTECify/frontend/src --include=*.ts --include=*.tsx)",
       "Bash(find /d/iTECify -type f \\\\\\(-name .env* -o -name vite.config.* -o -name docker-compose.* -o -name nginx.conf -o -name .nginx* \\\\\\))",
-      "Bash(grep -r \"localhost\\\\|127.0.0.1\\\\|:3001\\\\|:5173\" /d/iTECify/backend/src --include=*.js)"
+      "Bash(grep -r \"localhost\\\\|127.0.0.1\\\\|:3001\\\\|:5173\" /d/iTECify/backend/src --include=*.js)",
+      "Bash(sed -n '35,70p' backend/src/services/executionService.js)",
+      "Bash(sed -n '35,70p' backend/src/services/scannerService.js)",
+      "Bash(sed -n '1,30p' frontend/src/hooks/useRealtimeEditor.ts)",
+      "Bash(sed -n '80,130p' frontend/src/hooks/useRealtimeEditor.ts)",
+      "Bash(sed -n '120,210p' frontend/src/hooks/useRealtimeEditor.ts)",
+      "Bash(node -e:*)"
     ]
   }
 }
