@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import supabase from '../lib/supabase'
 import type { Project } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
-import projectsBgSrc from '../assets/projects.png'
+
 
 // Palette of vivid icons + colors for project cards
 const PROJECT_ICONS = ['🚀', '⚡', '🔥', '🌊', '🎯', '💎', '🧬', '🛸', '🎪', '🌈', '🔮', '🎭']
@@ -90,9 +90,6 @@ export default function DashboardPage() {
       fontFamily: 'system-ui, sans-serif',
       overflowX: 'hidden',
     }}>
-      {/* Projects background image */}
-      <img src={projectsBgSrc} alt="" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%) scale(0.7)', opacity: 0.08, zIndex: 0, pointerEvents: 'none' }} />
-
 
       {/* Glow orbs */}
       <div style={{ position: 'fixed', top: '8%', left: '10%', width: 520, height: 520, borderRadius: '50%', background: 'radial-gradient(circle, rgba(236,72,153,0.15) 0%, transparent 70%)', pointerEvents: 'none', zIndex: 0 }} />
