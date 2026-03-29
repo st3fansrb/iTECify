@@ -103,10 +103,9 @@ export function useProjectFiles(externalProjectId?: string): UseProjectFilesRetu
           setProjectId(projectId)
 
           // Asigură membership ca owner
-          await supabase
+          void supabase
             .from('project_members')
             .upsert({ project_id: projectId, user_id: user.id, role: 'owner' }, { onConflict: 'project_id,user_id' })
-            .then(() => {}).catch(() => {})
         } else {
           // ── 2. Caută membership ca member (după invite accept) ───────────────
           const { data: membership } = await supabase
@@ -133,10 +132,9 @@ export function useProjectFiles(externalProjectId?: string): UseProjectFilesRetu
             projectIdRef.current = projectId
             setProjectId(projectId)
 
-            await supabase
+            void supabase
               .from('project_members')
               .insert({ project_id: projectId, user_id: user.id, role: 'owner' })
-              .then(() => {}).catch(() => {})
           }
         }
 

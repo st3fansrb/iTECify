@@ -188,6 +188,18 @@ app.post('/api/invite', inviteLimiter, requireAuth, async (req, res) => {
   }
 });
 
+// ─── Serve Frontend (production) ───────────────────────────────────────────────
+const path = require('path');
+const fs = require('fs');
+const FRONTEND_DIST = path.join(__dirname, '../../frontend/dist');
+
+if (fs.existsSync(FRONTEND_DIST)) {
+  app.use(express.static(FRONTEND_DIST));
+  app.get('/{*splat}', (_req, res) => res.sendFile(path.join(FRONTEND_DIST, 'index.html')));
+} else {
+  console.warn("Folderul frontend/dist nu a fost găsit. Frontend-ul nu va fi servit.");
+}
+
 // ─── Start ─────────────────────────────────────────────────────────────────────
 
 app.listen(PORT, () => {

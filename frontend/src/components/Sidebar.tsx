@@ -1,4 +1,5 @@
-import { useState, useRef, CSSProperties } from 'react'
+import { useState, useRef } from 'react'
+import type { CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import type { ProjectMember } from '../hooks/useProjectMembers'
