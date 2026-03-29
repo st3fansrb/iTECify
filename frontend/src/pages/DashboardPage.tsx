@@ -4,6 +4,7 @@ import supabase from '../lib/supabase'
 import type { Project } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import dashBgSrc from '../assets/access-bg.png'
+import projectsBgSrc from '../assets/projects.png'
 
 // Palette of vivid icons + colors for project cards
 const PROJECT_ICONS = ['🚀', '⚡', '🔥', '🌊', '🎯', '💎', '🧬', '🛸', '🎪', '🌈', '🔮', '🎭']
@@ -84,11 +85,15 @@ export default function DashboardPage() {
     <div style={{
       minHeight: '100vh',
       width: '100vw',
+      position: 'relative',
       background: 'linear-gradient(135deg, #1a0533 0%, #2d1b4e 30%, #1a1a2e 60%, #0f0c29 100%)',
       color: 'white',
       fontFamily: 'system-ui, sans-serif',
       overflowX: 'hidden',
     }}>
+      {/* Projects background image */}
+      <img src={projectsBgSrc} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.08, zIndex: 0, pointerEvents: 'none' }} />
+
       {/* Dashboard background image — rotatie lenta + plutire, colorata mov/roz */}
       <img
         src={dashBgSrc}
