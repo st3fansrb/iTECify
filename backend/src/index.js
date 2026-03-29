@@ -1,4 +1,6 @@
 require('dotenv').config();
+const fs = require('fs');
+const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
@@ -13,7 +15,15 @@ const PORT = process.env.PORT || 3001;
 
 // ─── Middleware ────────────────────────────────────────────────────────────────
 
-app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173' }));
+const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:5173')
+  .split(',').map(o => o.trim()).filter(Boolean);
+app.use(cors({
+  origin: (origin, cb) => {
+    // Allow server-to-server (no origin) or listed origins
+    if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+    cb(new Error(`CORS: origin ${origin} not allowed`));
+  },
+}));
 app.use(express.json());
 
 // ─── Rate Limiters ─────────────────────────────────────────────────────────────
@@ -45,29 +55,31 @@ app.get('/health', (req, res) => {
 // Original execute endpoint (non-streaming, kept as fallback)
 // Rate limiter applied BEFORE auth
 app.post('/api/execute', executeLimiter, requireAuth, async (req, res) => {
-  const { language, code, stdin = '', force } = req.body;
+  try {
+    const { language, code, stdin = '', force } = req.body;
 
-  if (!language || !code) {
-    return res.status(400).json({ error: 'Missing required fields: language, code' });
+    if (!language || !code) {
+      return res.status(400).json({ error: 'Missing required fields: language, code' });
+    }
+
+    const scan = scanCode(code, language);
+    const hasHighSeverity = scan.warnings.some(w => w.severity === 'high');
+
+    if (hasHighSeverity && !force) {
+      return res.status(200).json({
+        stdout: '',
+        stderr: '',
+        error: null,
+        scanWarnings: scan.warnings,
+        blocked: true,
+      });
+    }
+
+    const result = await executeCode(language, code, stdin);
+    res.json({ ...result, scanWarnings: scan.warnings });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
-
-  // Run security scan
-  const scan = scanCode(code, language);
-  const hasHighSeverity = scan.warnings.some(w => w.severity === 'high');
-
-  // Block if high-severity warnings and no explicit force flag
-  if (hasHighSeverity && !force) {
-    return res.status(200).json({
-      stdout: '',
-      stderr: '',
-      error: null,
-      scanWarnings: scan.warnings,
-      blocked: true,
-    });
-  }
-
-  const result = await executeCode(language, code, stdin);
-  res.json({ ...result, scanWarnings: scan.warnings });
 });
 
 // ─── TASK 1.7 — SSE Streaming Execution ───────────────────────────────────────

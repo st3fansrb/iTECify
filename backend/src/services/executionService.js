@@ -4,7 +4,7 @@ const os = require('os');
 const { randomUUID } = require('crypto');
 const { spawn } = require('child_process');
 
-const TEMP_DIR = path.join(__dirname, '../../temp');
+const TEMP_DIR = path.join(os.tmpdir(), 'itecify');
 const TIMEOUT_MS = 30000;
 
 // Languages that need more memory for compilation (Go, Rust, Java, TypeScript)
@@ -219,13 +219,11 @@ async function streamWithDocker(language, code, stdin, { onStdout, onStderr, onE
 
   try {
     fs.mkdirSync(execDir, { recursive: true });
+    // Register dir cleanup immediately — before anything else can throw
+    onCleanup(() => { fs.rmSync(execDir, { recursive: true, force: true }); });
+
     fs.writeFileSync(path.join(execDir, runner.file), code, 'utf8');
     fs.writeFileSync(path.join(execDir, 'stdin.txt'), stdin, 'utf8');
-
-    const cleanup = () => {
-      fs.rmSync(execDir, { recursive: true, force: true });
-    };
-    onCleanup(cleanup);
 
     container = await docker.createContainer({
       Image: runner.image,
