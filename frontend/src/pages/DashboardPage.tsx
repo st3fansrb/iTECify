@@ -91,7 +91,7 @@ export default function DashboardPage() {
       overflowX: 'hidden',
     }}>
       {/* Projects background image */}
-      <img src={projectsBgSrc} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.08, zIndex: 0, pointerEvents: 'none' }} />
+      <img src={projectsBgSrc} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', objectPosition: 'left center', opacity: 0.08, zIndex: 0, pointerEvents: 'none' }} />
 
 
       {/* Glow orbs */}
