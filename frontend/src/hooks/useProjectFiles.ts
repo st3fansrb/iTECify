@@ -29,6 +29,12 @@ const STARTER_CONTENT: Record<string, string> = {
   cpp:        '// C++\n#include <iostream>\n\nint main() {\n    std::cout << "Hello from iTECify!" << std::endl;\n    return 0;\n}\n',
 }
 
+const EXT_TO_LANG_MAP: Record<string, string> = {
+  py: 'python', js: 'javascript', ts: 'typescript', tsx: 'typescript',
+  jsx: 'javascript', rs: 'rust', c: 'c', cpp: 'cpp', go: 'go',
+  java: 'java', md: 'markdown', json: 'json', css: 'css', html: 'html',
+}
+
 const DEFAULT_FILES = [
   { name: 'main.py',   language: 'python',     content: '# Python\nprint("Hello from iTECify!")\n' },
   { name: 'index.js',  language: 'javascript',  content: '// JavaScript\nconsole.log("Hello from iTECify!");\n' },
@@ -46,6 +52,8 @@ export interface UseProjectFilesReturn {
   loading: boolean
   error: string | null
   addFile: (name: string, language: string) => Promise<void>
+  renameFile: (id: string, newName: string) => Promise<void>
+  deleteFile: (id: string) => Promise<void>
   restoreDefaults: () => Promise<void>
   projectId: string
   projectName: string
@@ -238,6 +246,28 @@ export function useProjectFiles(externalProjectId?: string): UseProjectFilesRetu
     }
   }, [])
 
+  const renameFile = useCallback(async (id: string, newName: string) => {
+    const trimmed = newName.trim()
+    if (!trimmed) return
+    const ext = trimmed.split('.').pop()?.toLowerCase() ?? ''
+    const language = EXT_TO_LANG_MAP[ext] ?? 'plaintext'
+    const { error: updateErr } = await supabase
+      .from('files')
+      .update({ name: trimmed, language })
+      .eq('id', id)
+    if (updateErr) { console.error('[renameFile]', updateErr); return }
+    setFiles(prev => prev.map(f => f.id === id ? { ...f, name: trimmed, language } : f))
+  }, [])
+
+  const deleteFile = useCallback(async (id: string) => {
+    const { error: deleteErr } = await supabase
+      .from('files')
+      .delete()
+      .eq('id', id)
+    if (deleteErr) { console.error('[deleteFile]', deleteErr); return }
+    setFiles(prev => prev.filter(f => f.id !== id))
+  }, [])
+
   // Re-seeds the 3 default files if they were accidentally deleted
   const restoreDefaults = useCallback(async () => {
     const pid = projectIdRef.current
@@ -256,5 +286,5 @@ export function useProjectFiles(externalProjectId?: string): UseProjectFilesRetu
     if (created) setFiles(prev => [...prev, ...created])
   }, [])
 
-  return { files, loading, error, addFile, restoreDefaults, projectId, projectName }
+  return { files, loading, error, addFile, renameFile, deleteFile, restoreDefaults, projectId, projectName }
 }

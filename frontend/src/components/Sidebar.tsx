@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import type { CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
@@ -24,6 +24,7 @@ interface SidebarProps {
   userProjects?: Array<{ id: string; name: string }>
   currentProjectId?: string
   onSwitchProject?: (projectId: string) => void
+  onRenameFile?: (id: string, newName: string) => void
   onDeleteFile?: (fileId: string) => void
 }
 
@@ -173,19 +174,41 @@ function SidebarKeyframes() {
   )
 }
 
-export default function Sidebar({ files, activeFile, onSelectFile, loading, onCreateFile, onRestoreDefaults, members = [], onlineUserIds = [], onNewProject, projectName, userProjects = [], currentProjectId, onSwitchProject, onDeleteFile }: SidebarProps) {
+export default function Sidebar({ files, activeFile, onSelectFile, loading, onCreateFile, onRestoreDefaults, members = [], onlineUserIds = [], onNewProject, projectName, userProjects = [], currentProjectId, onSwitchProject, onDeleteFile, onRenameFile }: SidebarProps) {
+
   const navigate = useNavigate()
   const [expanded, setExpanded] = useState(true)
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState('')
   const [switcherOpen, setSwitcherOpen] = useState(false)
   const [contextMenu, setContextMenu] = useState<{ file: FileItem; x: number; y: number } | null>(null)
+  const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const renameInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (!contextMenu) return
+    const close = () => setContextMenu(null)
+    window.addEventListener('click', close)
+    window.addEventListener('contextmenu', close)
+    return () => { window.removeEventListener('click', close); window.removeEventListener('contextmenu', close) }
+  }, [contextMenu])
+
+  useEffect(() => {
+    if (renaming) setTimeout(() => renameInputRef.current?.select(), 30)
+  }, [renaming])
 
 const handleFileContextMenu = (file: FileItem, e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
     setContextMenu({ file, x: e.clientX, y: e.clientY })
+  }
+
+  const handleRenameSubmit = (newName: string) => {
+    if (renaming && newName.trim() && newName.trim() !== renaming.name) {
+      onRenameFile?.(renaming.id, newName.trim())
+    }
+    setRenaming(null)
   }
 
   const handleDeleteFile = () => {
@@ -519,26 +542,6 @@ const handleFileContextMenu = (file: FileItem, e: React.MouseEvent) => {
                       </button>
                     )
                   })}
-                  <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '4px 0' }} />
-                  <button
-                    onClick={() => { setSwitcherOpen(false); onNewProject?.() }}
-                    style={{
-                      width: '100%', textAlign: 'left',
-                      padding: '8px 12px',
-                      display: 'flex', alignItems: 'center', gap: '8px',
-                      background: 'transparent', border: 'none',
-                      color: 'rgba(167,139,250,0.8)',
-                      fontSize: '12px', fontFamily: 'monospace',
-                      cursor: 'pointer',
-                      transition: 'background 0.12s',
-                      marginBottom: 4,
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(139,92,246,0.1)' }}
-                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
-                  >
-                    <span>＋</span>
-                    <span>New project</span>
-                  </button>
                 </div>
               )}
             </div>
@@ -548,6 +551,31 @@ const handleFileContextMenu = (file: FileItem, e: React.MouseEvent) => {
               {files.map((file) => {
                 const isActive = activeFile === (file.id ?? file.name)
                 const key = file.id ?? file.name
+
+                if (renaming?.id === (file.id ?? '')) {
+                  return (
+                    <li key={key} style={{ padding: '3px 8px 3px 24px' }}>
+                      <input
+                        ref={renameInputRef}
+                        defaultValue={renaming.name}
+                        onBlur={e => handleRenameSubmit(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') handleRenameSubmit(e.currentTarget.value)
+                          if (e.key === 'Escape') setRenaming(null)
+                        }}
+                        style={{
+                          width: '100%', padding: '3px 6px',
+                          background: 'rgba(139,92,246,0.15)',
+                          border: '1px solid rgba(139,92,246,0.5)',
+                          borderRadius: '4px',
+                          color: '#e2e8f0', fontSize: '12px', fontFamily: 'monospace',
+                          outline: 'none',
+                        }}
+                      />
+                    </li>
+                  )
+                }
+
                 return (
                   <FileRow
                     key={key}
@@ -559,6 +587,66 @@ const handleFileContextMenu = (file: FileItem, e: React.MouseEvent) => {
                 )
               })}
             </ul>
+
+            {/* Context menu */}
+            {contextMenu && (
+              <div
+                onClick={e => e.stopPropagation()}
+                style={{
+                  position: 'fixed',
+                  top: contextMenu.y,
+                  left: contextMenu.x,
+                  zIndex: 9999,
+                  background: 'rgba(18,14,40,0.97)',
+                  border: '1px solid rgba(139,92,246,0.3)',
+                  borderRadius: '8px',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+                  backdropFilter: 'blur(12px)',
+                  minWidth: '140px',
+                  padding: '4px',
+                  fontFamily: 'monospace',
+                  fontSize: '12px',
+                }}
+              >
+                <button
+                  onClick={() => {
+                    setRenaming({ id: contextMenu.file.id ?? '', name: contextMenu.file.name })
+                    setContextMenu(null)
+                  }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '8px',
+                    width: '100%', padding: '7px 10px',
+                    background: 'transparent', border: 'none',
+                    color: 'rgba(255,255,255,0.8)', cursor: 'pointer',
+                    borderRadius: '5px', textAlign: 'left',
+                    transition: 'background 0.1s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(139,92,246,0.25)' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+                >
+                  ✏️ Rename
+                </button>
+                <div style={{ height: '1px', background: 'rgba(255,255,255,0.07)', margin: '2px 6px' }} />
+                <button
+                  onClick={() => {
+                    onDeleteFile?.(contextMenu.file.id ?? '')
+                    setContextMenu(null)
+                  }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '8px',
+                    width: '100%', padding: '7px 10px',
+                    background: 'transparent', border: 'none',
+                    color: 'rgba(248,113,113,0.85)', cursor: 'pointer',
+                    borderRadius: '5px', textAlign: 'left',
+                    transition: 'background 0.1s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.15)' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+                >
+                  🗑️ Delete
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -679,6 +767,33 @@ const handleFileContextMenu = (file: FileItem, e: React.MouseEvent) => {
             }}>
               {contextMenu.file.name}
             </div>
+
+            {/* Rename option */}
+            <button
+              onClick={() => {
+                setRenaming({ id: contextMenu.file.id ?? '', name: contextMenu.file.name })
+                setContextMenu(null)
+              }}
+              style={{
+                width: '100%', textAlign: 'left',
+                padding: '12px 16px',
+                display: 'flex', alignItems: 'center', gap: '10px',
+                background: 'transparent', border: 'none',
+                color: '#c4b5fd',
+                fontSize: '13px', fontFamily: 'monospace', fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'background 0.12s, color 0.12s',
+                letterSpacing: '0.01em',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(139,92,246,0.2)'; e.currentTarget.style.color = '#ddd6fe' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#c4b5fd' }}
+            >
+              <span style={{ fontSize: '15px', lineHeight: 1 }}>✏️</span>
+              Rename
+            </button>
+
+            {/* Divider */}
+            <div style={{ height: '1px', background: 'rgba(255,255,255,0.07)', margin: '2px 12px' }} />
 
             {/* Delete option */}
             <button

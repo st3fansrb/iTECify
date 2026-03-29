@@ -101,7 +101,7 @@ export default function AIBlock({ currentCode, language, terminalHeight = 192, t
           zIndex: 200,
         }}
       >
-        <TriqBot onClick={() => setOpen(o => !o)} />
+        <TriqBot onClick={() => setOpen(o => !o)} isOpen={open} />
       </div>
 
       {/* Panel */}
