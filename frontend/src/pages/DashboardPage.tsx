@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import supabase from '../lib/supabase'
 import type { Project } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
-import dashBgSrc from '../assets/access-bg.png'
 import projectsBgSrc from '../assets/projects.png'
 
 // Palette of vivid icons + colors for project cards
@@ -94,18 +93,6 @@ export default function DashboardPage() {
       {/* Projects background image */}
       <img src={projectsBgSrc} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.08, zIndex: 0, pointerEvents: 'none' }} />
 
-      {/* Dashboard background image — rotatie lenta + plutire, colorata mov/roz */}
-      <img
-        src={dashBgSrc}
-        alt=""
-        style={{
-          position: 'fixed', top: '50%', left: '50%',
-          width: '700px', height: '700px',
-          opacity: 0.15, zIndex: 0, pointerEvents: 'none',
-          filter: 'hue-rotate(260deg) saturate(3) brightness(1.5)',
-          animation: 'dash-bg-spin 20s linear infinite, dash-bg-float 6s ease-in-out infinite',
-        }}
-      />
 
       {/* Glow orbs */}
       <div style={{ position: 'fixed', top: '8%', left: '10%', width: 520, height: 520, borderRadius: '50%', background: 'radial-gradient(circle, rgba(236,72,153,0.15) 0%, transparent 70%)', pointerEvents: 'none', zIndex: 0 }} />
