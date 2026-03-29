@@ -884,11 +884,42 @@ function MultiProjectEditorWrapper() {
     searchParams.get('project') ??
     (location.state as { projectId?: string } | null)?.projectId
 
-  const [openProjects, setOpenProjects] = useState<OpenProject[]>([
-    { id: incomingId ?? undefined, name: incomingId ? '…' : 'Demo' },
-  ])
-  const [activeIdx, setActiveIdx] = useState(0)
+  const [openProjects, setOpenProjects] = useState<OpenProject[]>(() => {
+    try {
+      const saved = sessionStorage.getItem('itecify_open_projects')
+      if (saved) {
+        const parsed: OpenProject[] = JSON.parse(saved)
+        if (parsed.length > 0) {
+          if (incomingId && !parsed.some(p => p.id === incomingId)) {
+            return [...parsed, { id: incomingId, name: '…' }]
+          }
+          return parsed
+        }
+      }
+    } catch {}
+    return [{ id: incomingId ?? undefined, name: incomingId ? '…' : 'Demo' }]
+  })
+
+  const [activeIdx, setActiveIdx] = useState<number>(() => {
+    if (!incomingId) return 0
+    try {
+      const saved = sessionStorage.getItem('itecify_open_projects')
+      if (saved) {
+        const parsed: OpenProject[] = JSON.parse(saved)
+        const idx = parsed.findIndex(p => p.id === incomingId)
+        if (idx >= 0) return idx
+        return parsed.length // nou — adăugat la final
+      }
+    } catch {}
+    return 0
+  })
+
   const prevIdRef = useRef(incomingId)
+
+  // Persistă tab-urile în sessionStorage
+  useEffect(() => {
+    try { sessionStorage.setItem('itecify_open_projects', JSON.stringify(openProjects)) } catch {}
+  }, [openProjects])
 
   // Detect navigation to a new project
   useEffect(() => {
@@ -919,6 +950,7 @@ function MultiProjectEditorWrapper() {
   const closeProject = (idx: number, e: React.MouseEvent) => {
     e.stopPropagation()
     if (openProjects.length === 1) {
+      try { sessionStorage.removeItem('itecify_open_projects') } catch {}
       navigate('/dashboard')
       return
     }
