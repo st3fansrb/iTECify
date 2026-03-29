@@ -542,26 +542,6 @@ const handleFileContextMenu = (file: FileItem, e: React.MouseEvent) => {
                       </button>
                     )
                   })}
-                  <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '4px 0' }} />
-                  <button
-                    onClick={() => { setSwitcherOpen(false); onNewProject?.() }}
-                    style={{
-                      width: '100%', textAlign: 'left',
-                      padding: '8px 12px',
-                      display: 'flex', alignItems: 'center', gap: '8px',
-                      background: 'transparent', border: 'none',
-                      color: 'rgba(167,139,250,0.8)',
-                      fontSize: '12px', fontFamily: 'monospace',
-                      cursor: 'pointer',
-                      transition: 'background 0.12s',
-                      marginBottom: 4,
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(139,92,246,0.1)' }}
-                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
-                  >
-                    <span>＋</span>
-                    <span>New project</span>
-                  </button>
                 </div>
               )}
             </div>
