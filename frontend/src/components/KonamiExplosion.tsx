@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import catSrc from '../assets/cat-access.png'
-import accessBgSrc from '../assets/access-bg.png'
+import accessBgSrc from '../assets/terminal-bg.png'
 
 interface Particle {
   x: number; y: number
