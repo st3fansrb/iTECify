@@ -160,7 +160,7 @@ function RealtimeEditor({
 
 function EditorPage({ externalProjectId, onProjectName }: { externalProjectId?: string; onProjectName?: (name: string) => void }) {
   const navigate = useNavigate()
-  const { files, loading: filesLoading, addFile, restoreDefaults, projectId, projectName } = useProjectFiles(externalProjectId)
+  const { files, loading: filesLoading, addFile, renameFile, deleteFile, restoreDefaults, projectId, projectName } = useProjectFiles(externalProjectId)
   const { outputs, broadcast, clearOutputs } = useSharedTerminal(projectId)
   const { personalOutputs, addPersonalEntry, clearPersonalOutputs } = usePersonalTerminal()
   const members = useProjectMembers(projectId)
@@ -429,6 +429,7 @@ function EditorPage({ externalProjectId, onProjectName }: { externalProjectId?: 
           onSelectFile={handleSelectFile}
           loading={filesLoading}
           onCreateFile={addFile}
+          onRenameFile={renameFile}
           onDeleteFile={handleDeleteFile}
           onRestoreDefaults={restoreDefaults}
           members={members}
@@ -467,49 +468,54 @@ function EditorPage({ externalProjectId, onProjectName }: { externalProjectId?: 
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', position: 'relative', zIndex: 1 }}>
         {/* Tab bar */}
         <div style={{
-          display: 'flex', alignItems: 'center',
-          background: 'rgba(0,0,0,0.25)',
-          backdropFilter: 'blur(10px)',
-          borderBottom: '1px solid rgba(255,255,255,0.08)',
-          padding: '4px 8px',
-          gap: '4px',
+          display: 'flex', alignItems: 'stretch',
+          background: 'rgba(8,8,14,0.6)',
+          backdropFilter: 'blur(12px)',
+          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          minHeight: '36px',
+          gap: '0px',
         }}>
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '4px', overflowX: 'auto', flexWrap: 'nowrap' }}>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'stretch', gap: '0px', overflowX: 'auto', flexWrap: 'nowrap' }}>
             {openFiles.map((file) => {
               const isActive = activeFileId === file.id
+              const langDot: Record<string, string> = {
+                javascript: '#f7df1e', typescript: '#3b82f6', python: '#3b82f6',
+                rust: '#f97316', go: '#06b6d4', java: '#ef4444',
+                c: '#818cf8', cpp: '#818cf8', markdown: '#94a3b8',
+              }
+              const dot = langDot[file.language] ?? '#6b7280'
               return (
-                <div key={file.id} style={{ position: 'relative', flexShrink: 0, display: 'flex', alignItems: 'center' }}>
+                <div
+                  key={file.id}
+                  style={{
+                    position: 'relative', flexShrink: 0, display: 'flex', alignItems: 'center',
+                    borderRight: '1px solid rgba(255,255,255,0.05)',
+                    borderBottom: isActive ? `2px solid ${dot}` : '2px solid transparent',
+                    background: isActive ? 'rgba(255,255,255,0.06)' : 'transparent',
+                    transition: 'background 0.15s',
+                  }}
+                  onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLDivElement).style.background = 'rgba(255,255,255,0.03)' }}
+                  onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLDivElement).style.background = 'transparent' }}
+                >
                   <button
                     onClick={() => setActiveFileId(file.id)}
                     style={{
-                      padding: '5px 28px 5px 14px',
+                      display: 'flex', alignItems: 'center', gap: '6px',
+                      padding: '0 32px 0 12px',
+                      height: '100%',
                       fontSize: '12px',
-                      fontWeight: 600,
+                      fontWeight: isActive ? 600 : 400,
                       fontFamily: 'monospace',
-                      letterSpacing: '0.03em',
-                      borderRadius: '8px',
+                      letterSpacing: '0.02em',
                       cursor: 'pointer',
-                      transition: 'all 0.2s',
-                      background: isActive ? 'rgba(236,72,153,0.25)' : 'rgba(255,255,255,0.05)',
-                      border: isActive ? '1.5px solid #f472b6' : '1.5px solid rgba(255,255,255,0.15)',
-                      color: isActive ? '#f9a8d4' : 'rgba(255,255,255,0.4)',
+                      background: 'transparent',
+                      border: 'none',
+                      color: isActive ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.38)',
                       whiteSpace: 'nowrap',
-                    }}
-                    onMouseEnter={e => {
-                      if (!isActive) {
-                        e.currentTarget.style.background = 'rgba(236,72,153,0.1)'
-                        e.currentTarget.style.borderColor = 'rgba(244,114,182,0.4)'
-                        e.currentTarget.style.color = 'rgba(249,168,212,0.7)'
-                      }
-                    }}
-                    onMouseLeave={e => {
-                      if (!isActive) {
-                        e.currentTarget.style.background = 'rgba(255,255,255,0.05)'
-                        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'
-                        e.currentTarget.style.color = 'rgba(255,255,255,0.4)'
-                      }
+                      transition: 'color 0.15s',
                     }}
                   >
+                    <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: dot, flexShrink: 0, opacity: isActive ? 1 : 0.5 }} />
                     {file.name}
                   </button>
                   {/* Close tab button */}
@@ -518,23 +524,24 @@ function EditorPage({ externalProjectId, onProjectName }: { externalProjectId?: 
                     title="Close tab"
                     style={{
                       position: 'absolute',
-                      right: '7px',
-                      width: '14px',
-                      height: '14px',
+                      right: '6px',
+                      width: '16px',
+                      height: '16px',
                       background: 'transparent',
                       border: 'none',
-                      color: 'rgba(255,255,255,0.3)',
+                      color: isActive ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.15)',
                       cursor: 'pointer',
-                      fontSize: '11px',
+                      fontSize: '13px',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       borderRadius: '3px',
                       padding: 0,
                       lineHeight: 1,
+                      transition: 'color 0.15s, background 0.15s',
                     }}
-                    onMouseEnter={e => { e.currentTarget.style.color = '#f9a8d4'; e.currentTarget.style.background = 'rgba(236,72,153,0.25)' }}
-                    onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.3)'; e.currentTarget.style.background = 'transparent' }}
+                    onMouseEnter={e => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.background = 'rgba(255,255,255,0.12)' }}
+                    onMouseLeave={e => { e.currentTarget.style.color = isActive ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.15)'; e.currentTarget.style.background = 'transparent' }}
                   >
                     ×
                   </button>
@@ -929,74 +936,75 @@ function MultiProjectEditorWrapper() {
       {/* Project tabs */}
       <div style={{
         display: 'flex',
-        alignItems: 'center',
-        background: 'rgba(5,2,20,0.7)',
-        backdropFilter: 'blur(10px)',
-        borderBottom: '1px solid rgba(139,92,246,0.2)',
-        padding: '4px 8px',
-        gap: '4px',
+        alignItems: 'stretch',
+        background: 'linear-gradient(180deg, rgba(10,6,28,0.95) 0%, rgba(8,5,22,0.9) 100%)',
+        backdropFilter: 'blur(16px)',
+        borderBottom: '1px solid rgba(139,92,246,0.18)',
         flexShrink: 0,
         overflowX: 'auto',
+        minHeight: '34px',
+        boxShadow: '0 1px 0 rgba(139,92,246,0.08), 0 4px 16px rgba(0,0,0,0.4)',
       }}>
         {openProjects.map((p, i) => {
           const isActive = activeIdx === i
           return (
-            <div key={`${p.id ?? 'demo'}-${i}`} style={{ position: 'relative', flexShrink: 0, display: 'flex', alignItems: 'center' }}>
+            <div
+              key={`${p.id ?? 'demo'}-${i}`}
+              style={{
+                position: 'relative', flexShrink: 0, display: 'flex', alignItems: 'stretch',
+                borderRight: '1px solid rgba(255,255,255,0.05)',
+                borderBottom: isActive ? '2px solid #a78bfa' : '2px solid transparent',
+                background: isActive ? 'rgba(139,92,246,0.1)' : 'transparent',
+                transition: 'background 0.15s',
+              }}
+              onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLDivElement).style.background = 'rgba(139,92,246,0.05)' }}
+              onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLDivElement).style.background = 'transparent' }}
+            >
               <button
                 onClick={() => setActiveIdx(i)}
                 style={{
-                  padding: '4px 26px 4px 10px',
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                  padding: '0 30px 0 12px',
                   fontSize: '11px',
-                  fontWeight: 600,
+                  fontWeight: isActive ? 600 : 400,
                   fontFamily: 'monospace',
                   letterSpacing: '0.03em',
-                  borderRadius: '8px',
                   cursor: 'pointer',
-                  transition: 'all 0.2s',
-                  background: isActive ? 'rgba(139,92,246,0.25)' : 'rgba(255,255,255,0.04)',
-                  border: isActive ? '1.5px solid #a78bfa' : '1.5px solid rgba(255,255,255,0.12)',
-                  color: isActive ? '#c4b5fd' : 'rgba(255,255,255,0.4)',
+                  background: 'transparent',
+                  border: 'none',
+                  color: isActive ? '#c4b5fd' : 'rgba(255,255,255,0.35)',
                   whiteSpace: 'nowrap',
-                }}
-                onMouseEnter={e => {
-                  if (!isActive) {
-                    e.currentTarget.style.background = 'rgba(139,92,246,0.12)'
-                    e.currentTarget.style.borderColor = 'rgba(167,139,250,0.4)'
-                    e.currentTarget.style.color = 'rgba(196,181,253,0.8)'
-                  }
-                }}
-                onMouseLeave={e => {
-                  if (!isActive) {
-                    e.currentTarget.style.background = 'rgba(255,255,255,0.04)'
-                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)'
-                    e.currentTarget.style.color = 'rgba(255,255,255,0.4)'
-                  }
+                  transition: 'color 0.15s',
                 }}
               >
-                📁 {p.name}
+                <span style={{ fontSize: '12px', opacity: isActive ? 1 : 0.5 }}>📁</span>
+                {p.name}
               </button>
               <button
                 onClick={e => closeProject(i, e)}
                 title="Close project"
                 style={{
                   position: 'absolute',
-                  right: '7px',
-                  width: '14px',
-                  height: '14px',
+                  right: '6px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  width: '16px',
+                  height: '16px',
                   background: 'transparent',
                   border: 'none',
-                  color: 'rgba(255,255,255,0.3)',
+                  color: isActive ? 'rgba(196,181,253,0.5)' : 'rgba(255,255,255,0.15)',
                   cursor: 'pointer',
-                  fontSize: '11px',
+                  fontSize: '13px',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   borderRadius: '3px',
                   padding: 0,
                   lineHeight: 1,
+                  transition: 'color 0.15s, background 0.15s',
                 }}
-                onMouseEnter={e => { e.currentTarget.style.color = '#c4b5fd'; e.currentTarget.style.background = 'rgba(139,92,246,0.25)' }}
-                onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.3)'; e.currentTarget.style.background = 'transparent' }}
+                onMouseEnter={e => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.background = 'rgba(139,92,246,0.3)' }}
+                onMouseLeave={e => { e.currentTarget.style.color = isActive ? 'rgba(196,181,253,0.5)' : 'rgba(255,255,255,0.15)'; e.currentTarget.style.background = 'transparent' }}
               >
                 ×
               </button>

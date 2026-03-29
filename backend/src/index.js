@@ -188,6 +188,14 @@ app.post('/api/invite', inviteLimiter, requireAuth, async (req, res) => {
   }
 });
 
+// ─── Serve Frontend (production) ──────────────────────────────────────────────
+
+const FRONTEND_DIST = path.join(__dirname, '../../frontend/dist');
+if (fs.existsSync(FRONTEND_DIST)) {
+  app.use(express.static(FRONTEND_DIST));
+  app.get('*path', (_req, res) => res.sendFile(path.join(FRONTEND_DIST, 'index.html')));
+}
+
 // ─── Start ─────────────────────────────────────────────────────────────────────
 
 app.listen(PORT, () => {
