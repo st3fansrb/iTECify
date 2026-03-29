@@ -39,6 +39,7 @@
 * [x] Fix — DashboardPage: import revenit la dashboard-bg.png (blob.png era temporar)
 * [x] UI — LoginPage: fundal login.png position absolute, 100%×100%, object-fit cover, opacity 0.08, zIndex 0, pointerEvents none
 * [x] UI — DashboardPage: fundal projects.png position absolute, 100%×100%, object-fit cover, opacity 0.08, zIndex 0, pointerEvents none; container principal adăugat position relative
+* [x] Fix — index.html: title schimbat din 'frontend' în 'iTECify'
 * [x] Debug — console.log adăugat: remoteCursors în CodeEditor.tsx + presence state în useRealtimeEditor.ts + init/subscribe/track în useRealtimeEditor.ts (pentru verificare funcționare Presence)
 * [x] Feature 2 — Cursoare live în editor:
   - useRealtimeEditor: cursor schimbat din `number | null` → `{ lineNumber, column } | null`; updateCursor actualizat; remoteCursors expus în return
