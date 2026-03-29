@@ -923,18 +923,6 @@ function MultiProjectEditorWrapper() {
         minHeight: '34px',
         boxShadow: '0 1px 0 rgba(139,92,246,0.08), 0 4px 16px rgba(0,0,0,0.4)',
       }}>
-        {/* Branding pill */}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: '6px',
-          padding: '0 14px',
-          borderRight: '1px solid rgba(255,255,255,0.06)',
-          flexShrink: 0,
-        }}>
-          <span style={{ fontSize: '11px', fontWeight: 700, fontFamily: 'monospace', letterSpacing: '0.08em', background: 'linear-gradient(90deg, #a78bfa, #f472b6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            iTECify
-          </span>
-        </div>
-
         {openProjects.map((p, i) => {
           const isActive = activeIdx === i
           return (
